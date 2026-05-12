@@ -1,5 +1,5 @@
 # cyd-wifi-sniffer
-WiFi packet sniffer and network traffic classifier for the ESP32-3248S035 (CYD) board. Captures 802.11 frames in promiscuous mode, extracts features, logs training data to microSD, and displays live traffic on the built-in touchscreen.
+WiFi packet sniffer and network traffic classifier for the ESP32-3248S035 (CYD) board. Captures 802.11 frames in promiscuous mode, extracts features, logs data to microSD, and displays live traffic on the built-in touchscreen.
 
 ---
 
@@ -19,6 +19,8 @@ WiFi packet sniffer and network traffic classifier for the ESP32-3248S035 (CYD) 
 - PlatformIO (e.g., `brew install platformio`)
 
 ### Hardware
+<p align='left'><img src='assets/front.png' width='35%'><img src='assets/back.png' width='35%'></p>
+
 - **Board:** ESP32-3248S035 ("Cheap Yellow Display")
 - **Display:** 3.5" ST7796 TFT, 480x320
 - **Touch:** XPT2046 resistive touchscreen
