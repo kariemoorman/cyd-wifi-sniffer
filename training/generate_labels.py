@@ -30,6 +30,97 @@ FEATURE_COLS = [
     "unique_dst_count", "beacon_rate", "probe_req_rate", "retry_ratio",
 ]
 
+# OUI manufacturer → device_type mapping
+OUI_DEVICE_MAP = {
+    # Routers / network infrastructure
+    "NETGEAR":              "router",
+    "Ruckus Wireless":      "router",
+    "Arcadyan Corporation": "router",
+    "Commscope":            "router",
+    "Vantiva USA LLC":      "router",
+    "WNC Corporation":      "router",
+    "Epigram, Inc":         "router",
+    "TP-Link":              "router",
+    "Ubiquiti":             "router",
+    "Sagemcom":             "router",
+
+    # Smart home / IoT
+    "Sonos, Inc.":          "smart_home",
+    "Nest Labs Inc.":       "smart_home",
+    "ecobee inc":           "smart_home",
+    "GE Lighting":          "smart_home",
+    "Tuya Smart Inc.":      "smart_home",
+    "Espressif Inc.":       "smart_home",
+    "Smart Innovation LLC": "smart_home",
+    "Vizio, Inc":           "smart_home",
+    "iRobot Corporation":   "smart_home",
+    "Ring LLC":             "smart_home",
+    "SimpliSafe":           "smart_home",
+    "Blink by Amazon":      "smart_home",
+    "SAMJIN":               "smart_home",
+    "AMPAK Technology":     "smart_home",
+
+    # Phones
+    "Samsung":              "phone",
+    "Google, Inc.":         "phone",
+    "LG Innotek":           "phone",
+    "Huawei":               "phone",
+    "Xiaomi":               "phone",
+    "OnePlus":              "phone",
+    "Motorola":             "phone",
+    "OPPO":                 "phone",
+    "Nokia Solutions and Networks GmbH & Co. KG":   "phone",
+
+    # Laptops / computers
+    "Dell Inc.":            "cpu",
+    "Lenovo":               "cpu",
+    "Intel":                "cpu",
+    "AzureWave Technology Inc.": "cpu",
+    "ASUSTek":              "cpu",
+    "Apple, Inc.":          "cpu",
+
+    # Printers
+    "LEXMARK INTERNATIONAL, INC.": "printer",
+
+    # Game consoles
+    "Nintendo Co., Ltd.":  "game_console",
+
+    # Other
+    "Tesla,Inc.":           "iot_sensor",
+    "Visteon":              "iot_sensor",
+}
+
+
+def load_oui_cache(data_dir: str) -> dict:
+    path = os.path.join(data_dir, "oui_cache.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            cache = json.load(f)
+        print(f"  Loaded OUI cache: {len(cache)} entries")
+        return cache
+    print("  No oui_cache.json found, skipping OUI lookup")
+    return {}
+
+
+def oui_device_type(mac, oui_cache):
+    """Look up device type from OUI manufacturer."""
+    prefix = mac[:8].upper()
+    manufacturer = oui_cache.get(prefix, "Unknown")
+
+    # Apple makes everything — let heuristics decide
+    if "apple" in manufacturer.lower():
+        return None
+
+    for keyword, dev_type in OUI_DEVICE_MAP.items():
+        if keyword.lower() in manufacturer.lower():
+            return dev_type
+
+    # Randomized MAC (unknown OUI) = almost certainly phone/tablet
+    if manufacturer == "Unknown":
+        return "phone"
+
+    return None
+
 
 def load_features(data_dir: str) -> pd.DataFrame:
     pattern = os.path.join(data_dir, "feat_*.csv")
@@ -67,7 +158,7 @@ def load_alerts(data_dir: str) -> dict:
     return alerts
 
 
-def classify_device(row):
+def classify_device(row, oui_cache):
     anomaly = "normal"
     packet_class = "normal"
     protocol = "unknown"
@@ -85,21 +176,30 @@ def classify_device(row):
     unique_dst_count = row.get("unique_dst_count", 0)
     avg_pkt_size = row.get("avg_pkt_size", 0)
 
-    # Classify device type first so anomaly rules can account for it
+    # Device type: OUI first, heuristic as fallback
+    oui_type = oui_device_type(row["src_mac"], oui_cache)
+    if oui_type:
+        device_type = oui_type
+
+    # Strong heuristic overrides (even over OUI)
     if beacon_rate > 0.5 and probe_req_rate < 0.1:
         device_type = "router"
     elif beacon_rate > 0.5 and probe_req_rate >= 0.1:
         device_type = "smart_home"
-    elif probe_req_rate > 1.0 and data_ratio < 0.3:
-        device_type = "phone"
-    elif probe_req_rate > 0.1 and data_ratio < 0.3:
-        device_type = "phone"
-    elif avg_pkt_size > 500 and data_ratio > 0.7:
-        device_type = "laptop"
-    elif pkt_count < 50 and mgmt_ratio > 0.5:
-        device_type = "iot_sensor"
-    elif avg_pkt_size < 200 and pkt_rate < 5:
-        device_type = "smart_home"
+    elif avg_pkt_size > 300 and data_ratio > 0.5 and pkt_rate > 10:
+        device_type = "cpu"
+    elif device_type == "unknown":
+        # Only apply weak heuristics if OUI didn't classify
+        if probe_req_rate > 1.0 and data_ratio < 0.3:
+            device_type = "phone"
+        elif probe_req_rate > 0.1 and data_ratio > 0.3:
+            device_type = "cpu"
+        elif probe_req_rate > 0.1 and data_ratio < 0.3 and avg_pkt_size < 200:
+            device_type = "phone"
+        elif pkt_count < 50 and mgmt_ratio > 0.5:
+            device_type = "iot_sensor"
+        elif avg_pkt_size < 200 and pkt_rate < 5:
+            device_type = "smart_home"
 
     is_infra = device_type in ("router", "smart_home")
 
@@ -107,11 +207,11 @@ def classify_device(row):
         anomaly = "anomalous"
         packet_class = "suspicious"
         route_action = "throttle"
-    elif retry_ratio > 0.5 and pkt_count > 50:
+    elif retry_ratio > 0.5 and pkt_rate > 5.0:
         anomaly = "anomalous"
         packet_class = "suspicious"
         route_action = "throttle"
-    elif unique_dst_count > 20 and not is_infra:
+    elif unique_dst_count > 20 and not is_infra and pkt_rate > 1.0:
         anomaly = "anomalous"
         packet_class = "suspicious"
         route_action = "throttle"
@@ -134,6 +234,7 @@ def classify_device(row):
 
 def generate_labels(features: pd.DataFrame, output_path: str, data_dir: str):
     alert_map = load_alerts(data_dir)
+    oui_cache = load_oui_cache(data_dir)
 
     agg = features.groupby("src_mac").agg({
         "pkt_count": "max",
@@ -153,7 +254,7 @@ def generate_labels(features: pd.DataFrame, output_path: str, data_dir: str):
     rows = []
     anomaly_count = 0
     for _, row in agg.iterrows():
-        anomaly, pkt_class, protocol, dev_type, action = classify_device(row)
+        anomaly, pkt_class, protocol, dev_type, action = classify_device(row, oui_cache)
 
         mac = row["src_mac"]
         is_infra = dev_type in ("router", "smart_home")

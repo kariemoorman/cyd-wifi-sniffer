@@ -132,7 +132,7 @@ void loop() {
                 break;
         }
     }
-
+    
     display.draw(features, sd_logger,
                  sniffer_get_channel(), sniffer_is_running(),
                  sniffer_is_auto_hop(), features.total_packets());

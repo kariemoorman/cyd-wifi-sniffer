@@ -62,6 +62,7 @@ void Display::next_screen() {
         screen_ = (Screen)((screen_ + 1) % SCREEN_COUNT);
     } while (screen_ == SCREEN_ML && !ml_loaded_);
     tft_.fillRect(0, LIST_AREA_Y, SCREEN_W, LIST_AREA_H, C_BG);
+    tft_.fillRect(0, SCREEN_H - BUTTON_BAR_H, SCREEN_W, BUTTON_BAR_H, C_BG);
     prev_live_count_ = 0;
     prev_alert_count_ = 0;
     prev_ml_count_ = 0;
@@ -72,6 +73,7 @@ void Display::prev_screen() {
         screen_ = (Screen)((screen_ + SCREEN_COUNT - 1) % SCREEN_COUNT);
     } while (screen_ == SCREEN_ML && !ml_loaded_);
     tft_.fillRect(0, LIST_AREA_Y, SCREEN_W, LIST_AREA_H, C_BG);
+    tft_.fillRect(0, SCREEN_H - BUTTON_BAR_H, SCREEN_W, BUTTON_BAR_H, C_BG);
     prev_live_count_ = 0;
     prev_alert_count_ = 0;
     prev_ml_count_ = 0;
@@ -218,19 +220,87 @@ void Display::draw_stats(FeatureExtractor& fe, uint32_t total_pkts) {
         ctrl += d->ctrl_count;
     }
 
+    // Push deltas into history
+    uint32_t new_mgmt = mgmt - prev_mgmt_;
+    uint32_t new_data = data - prev_data_;
+    uint32_t new_ctrl = ctrl - prev_ctrl_;
+
+    // Skip the first-frame spike
+    if (prev_mgmt_ == 0 && prev_data_ == 0 && prev_ctrl_ == 0) {
+        new_mgmt = new_data = new_ctrl = 0;
+    }
+
+    prev_mgmt_ = mgmt;
+    prev_data_ = data;
+    prev_ctrl_ = ctrl;
+    frame_hist_.push(new_mgmt, new_data, new_ctrl);
+
     int y = LIST_AREA_Y + 10;
-    tft_.setTextColor(C_TEXT, C_BG);
+    tft_.setTextColor(TFT_MAGENTA, C_BG);
     tft_.drawString("Frame Types:", 10, y, F_MEDIUM);    y += 34;
+
     tft_.setTextColor(C_GOOD, C_BG);
-    tft_.drawString("  MGMT: " + String(mgmt), 10, y, F_SMALL);   y += 26;
-    tft_.setTextColor(C_ACCENT, C_BG);
-    tft_.drawString("  DATA: " + String(data), 10, y, F_SMALL);    y += 26;
+    tft_.drawString("MGMT: " + String(mgmt), 10, y, F_SMALL);
     tft_.setTextColor(C_WARN, C_BG);
-    tft_.drawString("  CTRL: " + String(ctrl), 10, y, F_SMALL);    y += 36;
+    tft_.drawString("Devices: " + String(fe.device_count()), 250, y, F_SMALL);
+    y += 26;
+
+    tft_.setTextColor(C_ACCENT, C_BG);
+    tft_.drawString("DATA: " + String(data), 10, y, F_SMALL);
+    tft_.setTextColor(C_WARN, C_BG);
+    tft_.drawString("Total Frames: " + String(total_pkts), 250, y, F_SMALL);
+    y += 26;
 
     tft_.setTextColor(C_TEXT, C_BG);
-    tft_.drawString("Devices: " + String(fe.device_count()), 10, y, F_SMALL);  y += 26;
-    tft_.drawString("Total:   " + String(total_pkts), 10, y, F_SMALL);
+    tft_.drawString("CTRL: " + String(ctrl), 10, y, F_SMALL);
+    y += 26;
+
+    // Stacked bar graph
+    int graph_y = LIST_AREA_Y + 160;
+    int graph_h = 80;
+    int bar_w = (SCREEN_W - 20) / HIST_LEN;
+    int base_x = 10;
+
+    uint32_t max_val = 1;
+    for (int i = 0; i < HIST_LEN; i++) {
+        uint32_t total = frame_hist_.get_mgmt(i) + frame_hist_.get_data(i) + frame_hist_.get_ctrl(i);
+        if (total > max_val) max_val = total;
+    }
+
+    tft_.fillRect(base_x, graph_y, SCREEN_W - base_x - 10, graph_h, C_BG);
+
+    for (int i = 0; i < HIST_LEN; i++) {
+        int x = base_x + i * bar_w;
+        uint32_t m = frame_hist_.get_mgmt(i);
+        uint32_t d = frame_hist_.get_data(i);
+        uint32_t c = frame_hist_.get_ctrl(i);
+
+        int h_m = (m * graph_h) / max_val;
+        int h_d = (d * graph_h) / max_val;
+        int h_c = (c * graph_h) / max_val;
+
+        // Clamp so bars never exceed graph area
+        int total_h = h_m + h_d + h_c;
+        if (total_h > graph_h) {
+            h_m = h_m * graph_h / total_h;
+            h_d = h_d * graph_h / total_h;
+            h_c = graph_h - h_m - h_d;
+        }
+
+        int bottom = graph_y + graph_h;
+
+        int y_ctrl = bottom - h_c;
+        int y_data = y_ctrl - h_d;
+        int y_mgmt = y_data - h_m;
+
+        if (y_mgmt < graph_y) y_mgmt = graph_y;
+        if (y_data < graph_y) y_data = graph_y;
+        if (y_ctrl < graph_y) y_ctrl = graph_y;
+
+        if (h_c > 0) tft_.fillRect(x, y_ctrl, bar_w - 1, h_c, C_WARN);
+        if (h_d > 0) tft_.fillRect(x, y_data, bar_w - 1, h_d, C_ACCENT);
+        if (h_m > 0) tft_.fillRect(x, y_mgmt, bar_w - 1, h_m, C_GOOD);
+    }
 
     tft_.setTextPadding(0);
 }
@@ -238,8 +308,8 @@ void Display::draw_stats(FeatureExtractor& fe, uint32_t total_pkts) {
 void Display::draw_alerts(FeatureExtractor& fe) {
     tft_.setTextDatum(TL_DATUM);
 
-    int y = LIST_AREA_Y + 6;
-    tft_.setTextColor(C_WARN, C_BG);
+    int y = LIST_AREA_Y + 10;
+    tft_.setTextColor(TFT_MAGENTA, C_BG);
     tft_.setTextPadding(300);
     tft_.drawString("Anomaly Detection", 10, y, F_MEDIUM);
     y += 32;
@@ -249,15 +319,15 @@ void Display::draw_alerts(FeatureExtractor& fe) {
 
     for (int i = 0; i < fe.device_count() && alert_count < max_rows; i++) {
         DeviceStats* dev = &fe.get_devices()[i];
-        if (dev->pkt_count < 10) continue;
+        if (dev->pkt_count < 10 || dev->pkt_rate() < 1.0f) continue;
 
         const char* reason = nullptr;
 
         if (dev->probe_req_rate() > 5.0f) {
             reason = "HIGH PROBE";
-        } else if (dev->retry_ratio() > 0.5f && dev->pkt_count > 50) {
+        } else if (dev->retry_ratio() > 0.5f && dev->pkt_rate() > 5.0f) {
             reason = "HIGH RETRY";
-        } else if (dev->unique_dst_count > 20) {
+        } else if (dev->unique_dst_count > 20 && dev->pkt_rate() > 1.0f) {
             reason = "MANY DSTS";
         } else if (dev->pkt_rate() > 200.0f && dev->data_ratio() > 0.8f) {
             reason = "FLOOD";
@@ -277,11 +347,11 @@ void Display::draw_alerts(FeatureExtractor& fe) {
             tft_.setTextPadding(140);
             tft_.drawString(reason, 240, y, F_SMALL);
 
-            char detail[24];
-            snprintf(detail, sizeof(detail), "%.0f p/s", dev->pkt_rate());
+            char detail[32];
+            snprintf(detail, sizeof(detail), "%u pkts %.0fp/s", dev->pkt_count, dev->pkt_rate());
             tft_.setTextColor(C_TEXT, C_BG);
-            tft_.setTextPadding(80);
-            tft_.drawString(detail, 390, y, F_SMALL);
+            tft_.setTextPadding(120);
+            tft_.drawString(detail, 360, y, F_SMALL);
 
             y += LIST_ROW_H;
             alert_count++;
@@ -311,7 +381,7 @@ void Display::draw_alerts(FeatureExtractor& fe) {
 void Display::draw_ml(FeatureExtractor& fe) {
     tft_.setTextDatum(TL_DATUM);
 
-    int y = LIST_AREA_Y + 6;
+    int y = LIST_AREA_Y + 10;
     tft_.setTextColor(TFT_MAGENTA, C_BG);
     tft_.setTextPadding(300);
     tft_.drawString("ML Classification", 10, y, F_MEDIUM);
@@ -365,8 +435,10 @@ void Display::draw_ml(FeatureExtractor& fe) {
         tft_.drawString(ROUTE_ACTION_LABELS[dev->ml.route_action], 342, y, F_SMALL);
 
         char score[16];
-        snprintf(score, sizeof(score), "%.2f", dev->ml.anomaly_score);
-        tft_.setTextColor(dev->ml.anomaly == 1 ? C_BAD : C_TEXT, C_BG);
+        float threat = fmaxf(dev->ml.anomaly_score, dev->ml.packet_class_score);
+        snprintf(score, sizeof(score), "%.2f", threat);
+        bool is_threat = (dev->ml.anomaly == 1) || (dev->ml.packet_class == 2);
+        tft_.setTextColor(is_threat ? C_BAD : C_TEXT, C_BG);
         tft_.setTextPadding(80);
         tft_.drawString(score, 400, y, F_SMALL);
 
@@ -401,7 +473,7 @@ void Display::draw_log(SDLogger& logger) {
 
     int y = LIST_AREA_Y + 10;
 
-    tft_.setTextColor(C_TEXT, C_BG);
+    tft_.setTextColor(TFT_MAGENTA, C_BG);
     tft_.drawString("SD Card Logger", 10, y, F_MEDIUM); y += 36;
 
     if (logger.is_ready()) {

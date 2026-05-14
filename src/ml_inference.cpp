@@ -20,7 +20,7 @@ bool MLInference::init() {
 
     auto* mdl = tflite::GetModel(SNIFFER_MODEL);
     if (mdl->version() != TFLITE_SCHEMA_VERSION) {
-        Serial.printf("ML: schema mismatch %lu vs %d\n", mdl->version(), TFLITE_SCHEMA_VERSION);
+        Serial.printf("ML: schema mismatch %u vs %d\n", mdl->version(), TFLITE_SCHEMA_VERSION);
         free(arena_);
         arena_ = nullptr;
         return false;
@@ -109,8 +109,19 @@ bool MLInference::predict(DeviceStats* dev) {
             if (h == 0 && j == 1) {
                 dev->ml.anomaly_score = val;
             }
-        }
+            if (h == 1 && j == 2) {
+                dev->ml.packet_class_score = val;
+            }
+        }  
         *heads[h].dst = (uint8_t)best;
+    }
+    // Override route_action based on packet_class
+    if (dev->ml.packet_class == 2) {        // malicious
+        dev->ml.route_action = 2;            // block
+    } else if (dev->ml.packet_class == 1) {  // suspicious
+        dev->ml.route_action = 1;            // throttle
+    } else {
+        dev->ml.route_action = 0;            // allow
     }
 
     dev->ml.valid = true;

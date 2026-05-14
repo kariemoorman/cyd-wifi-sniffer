@@ -14,6 +14,29 @@ enum Screen : uint8_t {
     SCREEN_COUNT
 };
 
+
+static constexpr int HIST_LEN = 30;  // 30 time slots
+
+struct FrameHistory {
+    uint32_t mgmt[HIST_LEN] = {};
+    uint32_t data[HIST_LEN] = {};
+    uint32_t ctrl[HIST_LEN] = {};
+    int head = 0;
+
+    void push(uint32_t m, uint32_t d, uint32_t c) {
+        mgmt[head] = m;
+        data[head] = d;
+        ctrl[head] = c;
+        head = (head + 1) % HIST_LEN;
+    }
+
+    // read i-th oldest sample (0 = oldest)
+    uint32_t get_mgmt(int i) const { return mgmt[(head + i) % HIST_LEN]; }
+    uint32_t get_data(int i) const { return data[(head + i) % HIST_LEN]; }
+    uint32_t get_ctrl(int i) const { return ctrl[(head + i) % HIST_LEN]; }
+};
+
+
 class Display {
 public:
     void init();
@@ -37,6 +60,11 @@ private:
     int prev_alert_count_ = 0;
     int prev_ml_count_ = 0;
     bool ml_loaded_ = false;
+
+    FrameHistory frame_hist_;
+    uint32_t prev_mgmt_ = 0;
+    uint32_t prev_data_ = 0;
+    uint32_t prev_ctrl_ = 0;
 
     void draw_status_bar(int channel, bool running, bool auto_hop, uint32_t total_pkts, int device_count);
     void draw_nav_arrows();

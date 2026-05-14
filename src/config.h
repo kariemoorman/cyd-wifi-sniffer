@@ -2,20 +2,20 @@
 
 #include <cstdint>
 
-// --- Display (ST7796 on HSPI) ---
+// --- Display (ST7796 on HSPI) --- //
 constexpr int PIN_TFT_BL       = 27;
 
-// --- Touch (XPT2046 on shared HSPI) ---
+// --- Touch (XPT2046 on shared HSPI) --- //
 constexpr int PIN_TOUCH_CS     = 33;
 constexpr int PIN_TOUCH_IRQ    = 36;
 
-// --- SD Card (VSPI) ---
+// --- SD Card (VSPI) --- //
 constexpr int PIN_SD_CS        = 5;
 constexpr int PIN_SD_MOSI      = 23;
 constexpr int PIN_SD_MISO      = 19;
 constexpr int PIN_SD_SCK       = 18;
 
-// --- Sniffer ---
+// --- Sniffer --- //
 constexpr int MAX_CAPTURE_LEN      = 256;
 constexpr int RING_BUFFER_SIZE     = 128;
 constexpr int MAX_DEVICES          = 96;
@@ -29,7 +29,7 @@ constexpr int CHANNEL_HOP_MS       = 2000;
 constexpr int ML_PREDICT_MS        = 10000;
 constexpr bool ML_MODE_DEFAULT     = true;
 
-// --- Display layout (480x320 landscape) ---
+// --- Display layout (480x320 landscape) --- //
 constexpr int SCREEN_W             = 480;
 constexpr int SCREEN_H             = 320;
 constexpr int STATUS_BAR_H         = 24;
