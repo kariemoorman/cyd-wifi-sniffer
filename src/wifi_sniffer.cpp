@@ -1,4 +1,5 @@
 #include "wifi_sniffer.h"
+#include "packet_parser.h"
 #include <Arduino.h>
 #include <esp_wifi.h>
 #include <esp_wifi_types.h>
@@ -20,34 +21,117 @@ struct ieee80211_hdr {
     uint16_t seq_ctrl;
 } __attribute__((packed));
 
+// static void IRAM_ATTR promisc_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
+//     if (!g_ring) return;
+
+//     auto* pkt = (wifi_promiscuous_pkt_t*)buf;
+//     auto* rx  = &pkt->rx_ctrl;
+
+//     if (rx->sig_len < sizeof(ieee80211_hdr)) return;
+
+//     auto* hdr = (ieee80211_hdr*)pkt->payload;
+
+//     PacketInfo info{};
+//     info.timestamp_us  = esp_timer_get_time();
+//     info.rssi          = rx->rssi;
+//     info.channel       = rx->channel;
+//     info.frame_type    = (hdr->frame_control & 0x0C) >> 2;
+//     info.frame_subtype = (hdr->frame_control & 0xF0) >> 4;
+//     info.duration      = hdr->duration;
+//     info.pkt_len       = rx->sig_len;
+//     info.rate          = rx->rate;
+//     info.seq_num       = hdr->seq_ctrl >> 4;
+//     info.retry         = (hdr->frame_control & 0x0800) != 0;
+
+//     memcpy(info.src_mac, hdr->addr2, 6);
+//     memcpy(info.dst_mac, hdr->addr1, 6);
+//     memcpy(info.bssid,   hdr->addr3, 6);
+
+//     info.capture_len = (rx->sig_len > MAX_CAPTURE_LEN) ? MAX_CAPTURE_LEN : rx->sig_len;
+//     memcpy(info.raw, pkt->payload, info.capture_len);
+
+//     info.ssid[0] = '\0';
+//     if (info.frame_type == 0) {
+//         uint8_t sub = info.frame_subtype;
+//         if (sub == 0 || sub == 4 || sub == 5 || sub == 8) {
+//             int body_offset = sizeof(ieee80211_hdr);
+//             if (sub == 8 || sub == 5) body_offset += 12;
+//             else if (sub == 0) body_offset += 4;
+
+//             const uint8_t* payload = pkt->payload;
+//             int total_len = rx->sig_len;
+//             int pos = body_offset;
+//             while (pos + 2 <= total_len) {
+//                 uint8_t tag_id  = payload[pos];
+//                 uint8_t tag_len = payload[pos + 1];
+//                 if (pos + 2 + tag_len > total_len) break;
+//                 if (tag_id == 0 && tag_len > 0 && tag_len <= 32) {
+//                     memcpy(info.ssid, &payload[pos + 2], tag_len);
+//                     info.ssid[tag_len] = '\0';
+//                     break;
+//                 }
+//                 if (tag_id == 0) break;
+//                 pos += 2 + tag_len;
+//             }
+//         }
+//     }
+
+//     g_ring->push(info);
+// }
+
+
 static void IRAM_ATTR promisc_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
     if (!g_ring) return;
 
     auto* pkt = (wifi_promiscuous_pkt_t*)buf;
     auto* rx  = &pkt->rx_ctrl;
 
-    if (rx->sig_len < sizeof(ieee80211_hdr)) return;
+    if (rx->sig_len < 10) return;  // absolute minimum (ACK frame)
 
-    auto* hdr = (ieee80211_hdr*)pkt->payload;
+    auto* raw = pkt->payload;
+    uint8_t frame_type = (raw[0] & 0x0C) >> 2;
 
     PacketInfo info{};
     info.timestamp_us  = esp_timer_get_time();
     info.rssi          = rx->rssi;
     info.channel       = rx->channel;
-    info.frame_type    = (hdr->frame_control & 0x0C) >> 2;
-    info.frame_subtype = (hdr->frame_control & 0xF0) >> 4;
-    info.duration      = hdr->duration;
+    info.frame_type    = frame_type;
+    info.frame_subtype = (raw[0] & 0xF0) >> 4;
     info.pkt_len       = rx->sig_len;
-    info.rate          = rx->rate;
-    info.seq_num       = hdr->seq_ctrl >> 4;
-    info.retry         = (hdr->frame_control & 0x0800) != 0;
+    info.retry         = (raw[1] & 0x08) != 0;
+
+    if (frame_type == FRAME_CTRL) {
+        // Control frames have minimal headers
+        // ACK/CTS: only addr1 (10 bytes), RTS: addr1+addr2 (16 bytes)
+        memcpy(info.dst_mac, &raw[4], 6);
+        if (rx->sig_len >= 16) {
+            memcpy(info.src_mac, &raw[10], 6);
+        }
+        info.duration = raw[2] | (raw[3] << 8);
+        info.rate = rx->rate;
+        info.seq_num = 0;
+        memset(info.bssid, 0, 6);
+        info.ssid[0] = '\0';
+        info.capture_len = (rx->sig_len > MAX_CAPTURE_LEN) ? MAX_CAPTURE_LEN : rx->sig_len;
+        memcpy(info.raw, raw, info.capture_len);
+        g_ring->push(info);
+        return;
+    }
+
+    // MGMT and DATA frames need full header
+    if (rx->sig_len < sizeof(ieee80211_hdr)) return;
+
+    auto* hdr = (ieee80211_hdr*)raw;
+    info.duration = hdr->duration;
+    info.rate     = rx->rate;
+    info.seq_num  = hdr->seq_ctrl >> 4;
 
     memcpy(info.src_mac, hdr->addr2, 6);
     memcpy(info.dst_mac, hdr->addr1, 6);
     memcpy(info.bssid,   hdr->addr3, 6);
 
     info.capture_len = (rx->sig_len > MAX_CAPTURE_LEN) ? MAX_CAPTURE_LEN : rx->sig_len;
-    memcpy(info.raw, pkt->payload, info.capture_len);
+    memcpy(info.raw, raw, info.capture_len);
 
     info.ssid[0] = '\0';
     if (info.frame_type == 0) {
@@ -57,15 +141,14 @@ static void IRAM_ATTR promisc_cb(void* buf, wifi_promiscuous_pkt_type_t type) {
             if (sub == 8 || sub == 5) body_offset += 12;
             else if (sub == 0) body_offset += 4;
 
-            const uint8_t* payload = pkt->payload;
             int total_len = rx->sig_len;
             int pos = body_offset;
             while (pos + 2 <= total_len) {
-                uint8_t tag_id  = payload[pos];
-                uint8_t tag_len = payload[pos + 1];
+                uint8_t tag_id  = raw[pos];
+                uint8_t tag_len = raw[pos + 1];
                 if (pos + 2 + tag_len > total_len) break;
                 if (tag_id == 0 && tag_len > 0 && tag_len <= 32) {
-                    memcpy(info.ssid, &payload[pos + 2], tag_len);
+                    memcpy(info.ssid, &raw[pos + 2], tag_len);
                     info.ssid[tag_len] = '\0';
                     break;
                 }
@@ -90,6 +173,13 @@ void sniffer_init(RingBuffer* rb) {
 
 void sniffer_start() {
     if (g_running) return;
+
+    wifi_promiscuous_filter_t filt = {
+        .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
+                     | WIFI_PROMIS_FILTER_MASK_DATA
+                     | WIFI_PROMIS_FILTER_MASK_CTRL
+    };
+    esp_wifi_set_promiscuous_filter(&filt);
 
     esp_wifi_set_promiscuous_rx_cb(promisc_cb);
     esp_wifi_set_promiscuous(true);

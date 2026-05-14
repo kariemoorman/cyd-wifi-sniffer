@@ -13,6 +13,7 @@ struct MLPrediction {
     uint8_t device_type;
     uint8_t route_action;
     float   anomaly_score;
+    float   packet_class_score;
     bool    valid;
 };
 

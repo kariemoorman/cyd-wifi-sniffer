@@ -21,6 +21,66 @@ to avoid repeat lookups.
 """
 
 
+OUI_DEVICE_MAP = {
+    # Routers / network infrastructure
+    "NETGEAR":              "router",
+    "Ruckus Wireless":      "router",
+    "Arcadyan Corporation": "router",
+    "Commscope":            "router",
+    "Vantiva USA LLC":      "router",
+    "WNC Corporation":      "router",
+    "Epigram, Inc":         "router",
+    "TP-Link":              "router",
+    "Ubiquiti":             "router",
+    "Sagemcom":             "router",
+
+    # Smart home / IoT
+    "Sonos, Inc.":          "smart_home",
+    "Nest Labs Inc.":       "smart_home",
+    "ecobee inc":           "smart_home",
+    "GE Lighting":          "smart_home",
+    "Tuya Smart Inc.":      "smart_home",
+    "Espressif Inc.":       "smart_home",
+    "Smart Innovation LLC": "smart_home",
+    "Vizio, Inc":           "smart_home",
+    "iRobot Corporation":   "smart_home",
+    "Ring LLC":             "smart_home",
+    "SimpliSafe":           "smart_home",
+    "Blink by Amazon":      "smart_home",
+    "SAMJIN":               "smart_home",
+    "AMPAK Technology":     "smart_home",
+
+    # Phones
+    "Samsung":              "phone",
+    "Google, Inc.":         "phone",
+    "LG Innotek":           "phone",
+    "Huawei":               "phone",
+    "Xiaomi":               "phone",
+    "OnePlus":              "phone",
+    "Motorola":             "phone",
+    "OPPO":                 "phone",
+    "Nokia Solutions and Networks GmbH & Co. KG":   "phone",
+
+    # Laptops / computers
+    "Dell Inc.":            "cpu",
+    "Lenovo":               "cpu",
+    "Intel":                "cpu",
+    "AzureWave Technology Inc.": "cpu",
+    "ASUSTek":              "cpu",
+    "Apple, Inc.":          "cpu",
+
+    # Printers
+    "LEXMARK INTERNATIONAL, INC.": "printer",
+
+    # Game consoles
+    "Nintendo Co., Ltd.":  "game_console",
+
+    # Other
+    "Tesla,Inc.":           "iot_sensor",
+    "Visteon":              "iot_sensor",
+}
+
+
 def lookup_oui(mac, cache, cache_path):
     oui = mac[:8].upper()
     if oui in cache:
@@ -42,6 +102,20 @@ def lookup_oui(mac, cache, cache_path):
         json.dump(cache, f, indent=2)
     time.sleep(1.1)
     return vendor
+
+
+def oui_device_type(mac, cache):
+    prefix = mac[:8].upper()
+    vendor = cache.get(prefix, "Unknown")
+
+    for keyword in OUI_DEVICE_MAP:
+        if keyword.lower() in vendor.lower():
+            return OUI_DEVICE_MAP[keyword]
+
+    if vendor == "Unknown":
+        return "phone"
+
+    return None
 
 
 def load_csvs(data_dir, prefix):
@@ -88,6 +162,7 @@ def main():
                 "pkt_count": 0,
                 "avg_rssi": 0.0,
                 "pkt_rate": 0.0,
+                "avg_pkt_size": 0.0,
                 "beacon_rate": 0.0,
                 "probe_req_rate": 0.0,
                 "mgmt_ratio": 0.0,
@@ -102,6 +177,7 @@ def main():
         d["samples"] += 1
         d["pkt_count"] = max(d["pkt_count"], int(float(row.get("pkt_count", 0))))
         d["pkt_rate"] = max(d["pkt_rate"], float(row.get("pkt_rate", 0)))
+        d["avg_pkt_size"] += float(row.get("avg_pkt_size", 0))
         d["beacon_rate"] = max(d["beacon_rate"], float(row.get("beacon_rate", 0)))
         d["probe_req_rate"] = max(d["probe_req_rate"], float(row.get("probe_req_rate", 0)))
         d["unique_dst_count"] = max(d["unique_dst_count"], int(float(row.get("unique_dst_count", 0))))
@@ -123,6 +199,7 @@ def main():
         if n > 0:
             d["avg_rssi"] /= n
             d["mgmt_ratio"] /= n
+            d["avg_pkt_size"] /= n
             d["data_ratio"] /= n
             d["retry_ratio"] /= n
 
@@ -157,22 +234,31 @@ def main():
         d = devices[mac]
         oui = mac[:8].upper()
         vendor = cache.get(oui, "Unknown")
-        if len(vendor) > 20:
-            vendor = vendor[:20] + ".."
 
-        # heuristic device type
-        if d["beacon_rate"] > 0.5:
-            dev_type = "router/AP"
-        elif d["probe_req_rate"] > 0.1 and d["data_ratio"] < 0.3:
-            dev_type = "phone"
-        elif d["data_ratio"] > 0.7 and d["pkt_count"] > 100:
-            dev_type = "laptop/PC"
-        elif d["pkt_count"] < 50 and d["mgmt_ratio"] > 0.5:
-            dev_type = "iot_sensor"
-        elif d["pkt_rate"] < 5 and d["pkt_count"] < 100:
+        # OUI-based classification
+        dev_type = "unknown"
+        vendor_lower = vendor.lower()
+
+        dev_type = oui_device_type(mac, cache) or "unknown"
+
+        # Strong heuristic overrides
+        if d["beacon_rate"] > 0.5 and d["probe_req_rate"] < 0.1:
+            dev_type = "router"
+        elif d["beacon_rate"] > 0.5 and d["probe_req_rate"] >= 0.1:
             dev_type = "smart_home"
-        else:
-            dev_type = "unknown"
+        elif d.get("avg_pkt_size", 0) > 300 and d["data_ratio"] > 0.5 and d["pkt_rate"] > 10:
+            dev_type = "cpu"
+        elif dev_type == "unknown":
+            if d["probe_req_rate"] > 1.0 and d["data_ratio"] < 0.3:
+                dev_type = "phone"
+            elif d["probe_req_rate"] > 0.1 and d["data_ratio"] > 0.3:
+                dev_type = "cpu"
+            elif d["probe_req_rate"] > 0.1 and d["data_ratio"] < 0.3 and d.get("avg_pkt_size", 0) < 200:
+                dev_type = "phone"
+            elif d["pkt_count"] < 50 and d["mgmt_ratio"] > 0.5:
+                dev_type = "iot_sensor"
+            elif d.get("avg_pkt_size", 0) < 200 and d["pkt_rate"] < 5:
+                dev_type = "smart_home"
 
         ssid = d["ssid"][:14] if d["ssid"] else ""
         sec = d["security"][:5] if d["security"] else ""

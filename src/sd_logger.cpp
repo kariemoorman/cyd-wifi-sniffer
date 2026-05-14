@@ -51,7 +51,7 @@ bool SDLogger::init() {
 
     ml_file_ = SD.open(ml_filename_, FILE_WRITE);
     if (ml_file_) {
-        ml_file_.println("timestamp,src_mac,anomaly,packet_class,protocol,device_type,route_action,anomaly_score");
+        ml_file_.println("timestamp,src_mac,anomaly,packet_class,protocol,device_type,route_action,anomaly_score,packet_class_score");
     }
 
     ready_ = true;
@@ -131,12 +131,14 @@ void SDLogger::log_anomalies(FeatureExtractor& fe) {
         DeviceStats* dev = &fe.get_devices()[i];
         if (dev->pkt_count < 10) continue;
 
+        if (dev->pkt_count < 10 || dev->pkt_rate() < 1.0f) continue;
+
         const char* reason = nullptr;
         if (dev->probe_req_rate() > 5.0f)
             reason = "HIGH_PROBE";
-        else if (dev->retry_ratio() > 0.5f && dev->pkt_count > 50)
+        else if (dev->retry_ratio() > 0.5f && dev->pkt_rate() > 5.0f)
             reason = "HIGH_RETRY";
-        else if (dev->unique_dst_count > 20)
+        else if (dev->unique_dst_count > 20 && dev->pkt_rate() > 1.0f)
             reason = "MANY_DSTS";
         else if (dev->pkt_rate() > 200.0f && dev->data_ratio() > 0.8f)
             reason = "FLOOD";
@@ -166,14 +168,15 @@ void SDLogger::log_ml_predictions(FeatureExtractor& fe) {
         if (!dev->ml.valid) continue;
 
         mac_to_str(dev->mac, mac_str);
-        ml_file_.printf("%lld,%s,%s,%s,%s,%s,%s,%.4f\n",
-                        now, mac_str,
-                        ANOMALY_LABELS[dev->ml.anomaly],
-                        PACKET_CLASS_LABELS[dev->ml.packet_class],
-                        PROTOCOL_LABELS[dev->ml.protocol],
-                        DEVICE_TYPE_LABELS[dev->ml.device_type],
-                        ROUTE_ACTION_LABELS[dev->ml.route_action],
-                        dev->ml.anomaly_score);
+        ml_file_.printf("%lld,%s,%s,%s,%s,%s,%s,%.4f,%.4f\n",
+                now, mac_str,
+                ANOMALY_LABELS[dev->ml.anomaly],
+                PACKET_CLASS_LABELS[dev->ml.packet_class],
+                PROTOCOL_LABELS[dev->ml.protocol],
+                DEVICE_TYPE_LABELS[dev->ml.device_type],
+                ROUTE_ACTION_LABELS[dev->ml.route_action],
+                dev->ml.anomaly_score,
+                dev->ml.packet_class_score);
     }
 
     ml_file_.flush();
@@ -209,9 +212,9 @@ void SDLogger::generate_filenames() {
         f.print(session);
         f.close();
     }
-    snprintf(pkt_filename_, sizeof(pkt_filename_), "/sniff_%lu.csv", session);
-    snprintf(feat_filename_, sizeof(feat_filename_), "/feat_%lu.csv", session);
-    snprintf(pcap_filename_, sizeof(pcap_filename_), "/cap_%lu.pcap", session);
-    snprintf(alert_filename_, sizeof(alert_filename_), "/alert_%lu.csv", session);
-    snprintf(ml_filename_, sizeof(ml_filename_), "/ml_%lu.csv", session);
+    snprintf(pkt_filename_, sizeof(pkt_filename_), "/sniff_%u.csv", session);
+    snprintf(feat_filename_, sizeof(feat_filename_), "/feat_%u.csv", session);
+    snprintf(pcap_filename_, sizeof(pcap_filename_), "/cap_%u.pcap", session);
+    snprintf(alert_filename_, sizeof(alert_filename_), "/alert_%u.csv", session);
+    snprintf(ml_filename_, sizeof(ml_filename_), "/ml_%u.csv", session);
 }
