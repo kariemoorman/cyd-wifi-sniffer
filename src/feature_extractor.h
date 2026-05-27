@@ -5,6 +5,7 @@
 #include "config.h"
 #include "ring_buffer.h"
 #include "packet_parser.h"
+#include "oui_lookup.h"
 
 struct MLPrediction {
     uint8_t anomaly;
@@ -23,6 +24,7 @@ struct DeviceStats {
     char         ssid[33];
     SecurityType security;
     MLPrediction ml;
+    uint8_t      oui_device_type;  // OUI_DEVICE_TYPE_NONE when no hit
 
     uint32_t pkt_count;
     uint32_t total_pkt_size;

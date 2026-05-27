@@ -75,7 +75,7 @@ bool MLInference::predict(DeviceStats* dev) {
     int32_t input_zp = input->params.zero_point;
 
     for (int i = 0; i < N_FEATURES; i++) {
-        float normalized = (features[i] - FEATURE_MEAN[i]) / FEATURE_SCALE[i];
+        float normalized = (features[i] - SCALER_MEAN[i]) / SCALER_SCALE[i];
         int val = (int)(normalized / input_scale) + input_zp;
         if (val < -128) val = -128;
         if (val > 127) val = 127;

@@ -51,7 +51,7 @@ bool SDLogger::init() {
 
     ml_file_ = SD.open(ml_filename_, FILE_WRITE);
     if (ml_file_) {
-        ml_file_.println("timestamp,src_mac,anomaly,packet_class,protocol,device_type,route_action,anomaly_score,packet_class_score");
+        ml_file_.println("timestamp,src_mac,anomaly,packet_class,protocol,device_type,oui_device_type,route_action,anomaly_score,packet_class_score");
     }
 
     ready_ = true;
@@ -168,12 +168,15 @@ void SDLogger::log_ml_predictions(FeatureExtractor& fe) {
         if (!dev->ml.valid) continue;
 
         mac_to_str(dev->mac, mac_str);
-        ml_file_.printf("%lld,%s,%s,%s,%s,%s,%s,%.4f,%.4f\n",
+        const char* oui_label = (dev->oui_device_type != OUI_DEVICE_TYPE_NONE)
+            ? DEVICE_TYPE_LABELS[dev->oui_device_type] : "";
+        ml_file_.printf("%lld,%s,%s,%s,%s,%s,%s,%s,%.4f,%.4f\n",
                 now, mac_str,
                 ANOMALY_LABELS[dev->ml.anomaly],
                 PACKET_CLASS_LABELS[dev->ml.packet_class],
                 PROTOCOL_LABELS[dev->ml.protocol],
                 DEVICE_TYPE_LABELS[dev->ml.device_type],
+                oui_label,
                 ROUTE_ACTION_LABELS[dev->ml.route_action],
                 dev->ml.anomaly_score,
                 dev->ml.packet_class_score);

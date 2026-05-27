@@ -420,7 +420,10 @@ void Display::draw_ml(FeatureExtractor& fe) {
 
         tft_.setTextColor(C_WARN, C_BG);
         tft_.setTextPadding(92);
-        tft_.drawString(DEVICE_TYPE_LABELS[dev->ml.device_type], 168, y, F_SMALL);
+        uint8_t dtype = (dev->oui_device_type != OUI_DEVICE_TYPE_NONE)
+            ? dev->oui_device_type
+            : dev->ml.device_type;
+        tft_.drawString(DEVICE_TYPE_LABELS[dtype], 168, y, F_SMALL);
 
         uint16_t cls_col = dev->ml.packet_class >= 2 ? C_BAD :
                            dev->ml.packet_class == 1 ? C_WARN : C_TEXT;
