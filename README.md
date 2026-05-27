@@ -62,7 +62,7 @@ ls /dev/cu.*
 
 You should see output similar to the following:
 
-```
+```bash
 /dev/cu.Bluetooth-Incoming-Port
 /dev/cu.usbserial-XXXXX
 ```
@@ -249,12 +249,13 @@ The session counter is stored in `session_id.txt` on the SD card. Delete this fi
 
 <br>
 
-| Column | Description | 
+| Column | Description |
 |--------|-------------|
 | `timestamp` | Microseconds since boot |
 | `src_mac` | Device MAC address |
 | `ssid` | Network name (if known) |
-| `security alert` | Alert type (MANY_DSTS, HIGH_PROBE, HIGH_RETRY, FLOOD) | 
+| `security` | Encryption type (OPEN/WEP/WPA/WPA2/WPA3/W2/3) |
+| `alert` | Alert type (MANY_DSTS, HIGH_PROBE, HIGH_RETRY, FLOOD) |
 | `pkt_count` | Total packets from this device |
 | `pkt_rate` | Packets per second |
 | `avg_rssi` | Mean signal strength in dBm |
@@ -279,9 +280,11 @@ The session counter is stored in `session_id.txt` on the SD card. Delete this fi
 | `anomaly` | Anomaly classification (normal, anomalous) |
 | `packet_class` | Traffic classification (normal, suspicious, malicious, unknown) |
 | `protocol` | Detected protocol (wifi_mgmt, wifi_data, wifi_ctrl, dhcp, dns, http, https, mqtt, unknown) |
-| `device_type` | Device type (router, phone, laptop, iot_sensor, smart_home, camera, printer, game_console, unknown) |
+| `device_type` | ML-predicted device type (router, phone, laptop, iot_sensor, smart_home, camera, printer, game_console, unknown, flock) |
+| `oui_device_type` | Device type inferred from on-device OUI lookup table (`src/oui_table.h`). Blank when the OUI is not in the table |
 | `route_action` | Recommended action (allow, throttle, block) |
 | `anomaly_score` | Anomaly confidence score (0.0-1.0) |
+| `packet_class_score` | Packet-class confidence score (0.0-1.0) |
 
 <br>
 
@@ -291,7 +294,23 @@ The session counter is stored in `session_id.txt` on the SD card. Delete this fi
 
 ## ML Model Training
 
-The current ML model uses a single shared-backbone architecture trained on 12 scalar network-traffic features (Dense(64) → Dense(32) with BatchNorm and Dropout) with five softmax output heads (anomaly detection, packet classification, protocol identification, device fingerprinting, route action recommendation). Quantized to int8 at 3,995 parameters (~4KB), the deployed model runs all five inference heads in a single forward pass every 10 seconds within the ESP32's 520KB SRAM, alongside packet capture and device tracking.
+The training pipeline supports five model types, all sharing the same five
+softmax output heads (anomaly detection, packet classification, protocol
+identification, device fingerprinting, route action recommendation) over 12
+scalar network-traffic features. Models are quantized to int8 and exported as a TFLite buffer + C headers for on-device inference within the ESP32's 520KB SRAM.
+
+| Model | `--model` flag | Make target | Architecture |
+|-------|----------------|-------------|--------------|
+| **Dense NN** (default) | `nn` | `make train-nn` | `Dense(64) → BN → Dropout(0.3) → Dense(32) → BN → Dropout(0.2)` shared backbone → 5 softmax heads. ~4KB quantized. |
+| **LSTM hybrid** | `lstm_lr` | `make train-lstm` | Sliding-window time-series input `(window, 12)` → `LSTM(64, unroll=True)` temporal encoder → BN → Dropout(0.3) → 5 Dense+softmax (logistic-regression) heads. Captures long-range gated dependencies across consecutive 10s feature windows per device. |
+| **GRU hybrid** | `gru_lr` | `make train-gru` | Same shape as LSTM but uses `GRU(64, unroll=True)` — fewer parameters and faster inference than LSTM with comparable accuracy on shorter sequences. |
+| **RNN hybrid** | `rnn_lr` | `make train-rnn` | Same shape as LSTM but uses `SimpleRNN(64, unroll=True)` — smallest hybrid footprint; suitable when the window is short and gradients stay well-behaved. |
+| **Random Forest** | `rf` | `make train-rf` | One `RandomForestClassifier(n_estimators=100, max_depth=10)` per output head. Sklearn baseline — not exported to TFLite; used for accuracy comparison and feature-importance ranking. |
+
+All three hybrid models share `assemble_windows()` for time-series prep: every
+row of `feat_*.csv` is one timestep, rows for each `src_mac` are concatenated
+chronologically across files, then stride-1 sliding windows of `--window_size`
+steps are extracted (short sequences zero-padded on the left).
 
 ### Setup
 
@@ -307,25 +326,37 @@ pip install -r requirements.txt
 Flash the sniffer, enable logging, and let it run across your network.
 Once you've collected sufficient data, copy the `feat_*.csv` and `alert_*.csv` files from the SD card to `training/data/` directory.
 
-Then use the Python training scripts to build a TFLite model for on-device inference. 
-The pipeline has two separate steps: label generation and model training.
+Then use the Python training scripts to build a TFLite model for on-device inference.
 
-### Step 2: Generate Labels
+The pipeline has five additional steps: 
+- device identification
+- label generation
+- OUI table generation
+- model training
+- model deployment
 
-Look up device manufacturers by MAC address to label device type field:
+### Step 2: Identify Devices
+
+Look up device manufacturers by MAC address (cached to `training/data/oui_cache.json`):
 
 ```bash
-python tools/identify_devices.py --data_dir training/data/
+python training/identify_devices.py --data_dir training/data/
+# or
+make id-devices
 ```
 
-Generate remaining training data labels:
+### Step 3: Generate Labels
+
+Generate training data labels using the cached OUI lookups plus heuristic rules:
 
 ```bash
 python training/generate_labels.py --data_dir training/data/
+# or
+make labels
 ```
 
-This creates `data/labels.csv` with heuristic-based labels for each unique
-device. Alert CSVs are incorporated automatically. Devices that triggered
+This creates `training/data/labels.csv` with heuristic-based labels for each
+unique device. Alert CSVs are incorporated automatically. Devices that triggered
 firmware alerts are labeled as `anomalous`, e.g.,
 
 ```csv
@@ -344,35 +375,109 @@ You are encouraged to manually review and edit the file before initiating model 
 | anomaly | normal, anomalous |
 | packet_class | normal, suspicious, malicious, unknown |
 | protocol | wifi_mgmt, wifi_data, wifi_ctrl, dhcp, dns, http, https, mqtt, unknown |
-| device_type | router, phone, laptop, iot_sensor, smart_home, camera, printer, game_console, unknown |
+| device_type | router, phone, cpu, iot_sensor, smart_home, camera, printer, game_console, unknown, flock |
 | route_action | allow, throttle, block |
 
-### Step 3: Train Model
+### Step 4: Generate OUI Table
+
+Compile the on-device OUI → device-type lookup table (`src/oui_table.h`) from
+`training/data/oui_cache.json`. Each row pairs a 24-bit OUI with its
+`device_type` index (matching `DEVICE_TYPE_LABELS` in `src/label_mappings.h`);
+at runtime, `oui_lookup()` does a binary search over the sorted array to
+classify a device from its MAC.
+
+Vendor → device-type mapping is driven by `OUI_DEVICE_MAP` in
+[training/labels.py](training/labels.py) — to add or remove a vendor on-device,
+edit that map rather than special-casing the header.
+
+**Incremental update (default):** preserves any existing entries in
+`src/oui_table.h` (including hand-added or hand-edited rows) and appends only
+OUIs from the cache that aren't already in the table. All entries are
+re-sorted on emit, so this is also the right command to run if the table
+falls out of OUI order.
 
 ```bash
-python train_model.py --data_dir ./data --output_dir ./output --epochs 100
+python tools/generate_oui_table.py
+# or
+make oui-table
 ```
 
-**Class balancing:** The training script uses sample weights to handle class imbalance. 
-
-Use `--balance` to control which heads get balanced:
+**Full rebuild:** discards the existing `src/oui_table.h` and regenerates it
+from `oui_cache.json` alone. Use this when you've changed `OUI_DEVICE_MAP`
+keywords or `DEVICE_CLASSES` ordering and want every row reclassified from
+scratch. Warning: this drops any hand-edits.
 
 ```bash
-# balance only specific heads
-python train_model.py --data_dir ./data --output_dir ./output \
-    --balance anomaly device_type packet_class
-
-# balance across all heads
-python train_model.py --data_dir ./data --output_dir ./output --balance
+python tools/generate_oui_table.py --regenerate
+# or
+make oui-table-regenerate
 ```
+
+To run identify + label + on-device OUI table generation in one shot:
+
+```bash
+make data-prep
+```
+
+### Step 5: Train Model
+
+Pick a model and run the matching script or Make target:
+
+```bash
+# Dense NN (default)
+python training/train_model.py --data_dir training/data --output_dir training/output --model nn --epochs 100
+
+# LSTM / GRU / SimpleRNN hybrids (sliding-window time-series)
+python training/train_model.py --data_dir training/data --output_dir training/output --model lstm_lr --window_size 5 --epochs 100
+python training/train_model.py --data_dir training/data --output_dir training/output --model gru_lr  --window_size 5 --epochs 100
+python training/train_model.py --data_dir training/data --output_dir training/output --model rnn_lr  --window_size 5 --epochs 100
+
+# Random Forest baseline (no TFLite export)
+python training/train_model.py --data_dir training/data --output_dir training/output --model rf
+```
+
+Make-target equivalents:
+
+```bash
+make train-nn
+make train-lstm WINDOW=5 EPOCHS=100
+make train-gru  WINDOW=5 EPOCHS=100
+make train-rnn  WINDOW=5 EPOCHS=100
+make train-rf
+```
+
+**Class balancing:** The training script uses sample weights to handle class
+imbalance. Use `--balance` to control which heads get balanced.
 
 Available heads: `anomaly`, `packet_class`, `protocol`, `device_type`, `route_action`.
 
-**Note:** Skip features that have very few minority samples (e.g. `route_action` with
-only a handful of "block" labels). Balancing can hurt when the minority
-class is too small.
+```bash
+# balance only specific heads
+python training/train_model.py --data_dir training/data --output_dir training/output \
+    --balance anomaly device_type packet_class
 
-### Step 5: Deploy
+# balance across all heads
+python training/train_model.py --data_dir training/data --output_dir training/output --balance
+```
+
+Make-target equivalents:
+
+```bash
+make train-nnb 
+make train-lstmb WINDOW=3 BALANCE="anomaly device_type"
+make train-grub BALANCE="anomaly device_type packet_class"
+make train-rnnb EPOCHS=120 BALANCE="anomaly"
+make train-rfb BALANCE="anomaly protocol"
+```
+
+The `--balance` flag is driven by the `BALANCE` Make variable (default is
+`anomaly protocol device_type`).
+
+**Note:** `route_action` is auto-excluded from balancing for the NN and hybrid models (inside `prepare_balance_weights()`). Random Forest honors it as an as-passed value. In general, it is advisable to skip heads with very few minority samples (e.g. `route_action` with only a handful of `block` labels), as balancing can negatively impact performance when the minority class is too small.[^1]
+
+[^1]: `compute_class_weight("balanced", …)` weights each class inversely to its frequency, so a tiny minority gets a huge per-sample weight. Those few rows then dominate gradient updates, and the model overfits to them.
+
+### Step 6: Deploy
 
 Copy the generated headers to the firmware source:
 
@@ -380,6 +485,8 @@ Copy the generated headers to the firmware source:
 cp training/output/sniffer_model.h src/
 cp training/output/scaler_params.h src/
 cp training/output/label_mappings.h src/
+# or
+make ml-copy
 ```
 
-Rebuild and flash firmware. 
+Rebuild and flash firmware.

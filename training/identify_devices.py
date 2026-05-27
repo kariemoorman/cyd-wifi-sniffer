@@ -9,76 +9,21 @@ import urllib.error
 
 import csv
 
+from training.labels import OUI_DEVICE_MAP
+
 """
 Identify devices from captured feature/alert CSVs using OUI manufacturer lookup.
-
-Usage:
-    python tools/identify_devices.py --data_dir training/data
 
 Looks up each unique MAC's manufacturer via macvendors.com API,
 shows traffic stats and heuristic classification, and caches results
 to avoid repeat lookups.
+
+Usage:
+    python training/identify_devices.py --data_dir training/data
+
+Output:
+    training/data/oui_cache.json
 """
-
-
-OUI_DEVICE_MAP = {
-    # Routers / network infrastructure
-    "NETGEAR":              "router",
-    "Ruckus Wireless":      "router",
-    "Arcadyan Corporation": "router",
-    "Commscope":            "router",
-    "Vantiva USA LLC":      "router",
-    "WNC Corporation":      "router",
-    "Epigram, Inc":         "router",
-    "TP-Link":              "router",
-    "Ubiquiti":             "router",
-    "Sagemcom":             "router",
-
-    # Smart home / IoT
-    "Sonos, Inc.":          "smart_home",
-    "Nest Labs Inc.":       "smart_home",
-    "ecobee inc":           "smart_home",
-    "GE Lighting":          "smart_home",
-    "Tuya Smart Inc.":      "smart_home",
-    "Espressif Inc.":       "smart_home",
-    "Smart Innovation LLC": "smart_home",
-    "Vizio, Inc":           "smart_home",
-    "iRobot Corporation":   "smart_home",
-    "Ring LLC":             "smart_home",
-    "SimpliSafe":           "smart_home",
-    "Blink by Amazon":      "smart_home",
-    "SAMJIN":               "smart_home",
-    "AMPAK Technology":     "smart_home",
-
-    # Phones
-    "Samsung":              "phone",
-    "Google, Inc.":         "phone",
-    "LG Innotek":           "phone",
-    "Huawei":               "phone",
-    "Xiaomi":               "phone",
-    "OnePlus":              "phone",
-    "Motorola":             "phone",
-    "OPPO":                 "phone",
-    "Nokia Solutions and Networks GmbH & Co. KG":   "phone",
-
-    # Laptops / computers
-    "Dell Inc.":            "cpu",
-    "Lenovo":               "cpu",
-    "Intel":                "cpu",
-    "AzureWave Technology Inc.": "cpu",
-    "ASUSTek":              "cpu",
-    "Apple, Inc.":          "cpu",
-
-    # Printers
-    "LEXMARK INTERNATIONAL, INC.": "printer",
-
-    # Game consoles
-    "Nintendo Co., Ltd.":  "game_console",
-
-    # Other
-    "Tesla,Inc.":           "iot_sensor",
-    "Visteon":              "iot_sensor",
-}
 
 
 def lookup_oui(mac, cache, cache_path):

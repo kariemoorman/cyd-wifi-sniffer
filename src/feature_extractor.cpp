@@ -86,6 +86,7 @@ DeviceStats* FeatureExtractor::find_or_create(const uint8_t mac[6]) {
         memset(&devices_[min_idx], 0, sizeof(DeviceStats));
         memcpy(devices_[min_idx].mac, mac, 6);
         devices_[min_idx].active = true;
+        devices_[min_idx].oui_device_type = oui_lookup(mac);
         return &devices_[min_idx];
     }
 
@@ -93,6 +94,7 @@ DeviceStats* FeatureExtractor::find_or_create(const uint8_t mac[6]) {
     memset(dev, 0, sizeof(DeviceStats));
     memcpy(dev->mac, mac, 6);
     dev->active = true;
+    dev->oui_device_type = oui_lookup(mac);
     return dev;
 }
 

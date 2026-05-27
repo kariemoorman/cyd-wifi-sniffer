@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import glob
+import json
 import os
 
 import pandas as pd
+
+from training.labels import FEATURE_COLS, OUI_DEVICE_MAP
 
 """
 CYD Network Sniffer — Label Generation
@@ -14,6 +17,7 @@ and generates a labels.csv for training.
 
 Usage:
     python training/generate_labels.py --data_dir training/data
+    (or `make labels`)
 
 The data_dir should contain:
     - feat_*.csv files from the sniffer
@@ -23,73 +27,6 @@ Output:
     data_dir/labels.csv — one row per unique device with suggested labels.
     Review and edit before training.
 """
-
-FEATURE_COLS = [
-    "pkt_count", "avg_pkt_size", "std_pkt_size", "avg_rssi",
-    "pkt_rate", "mgmt_ratio", "data_ratio", "ctrl_ratio",
-    "unique_dst_count", "beacon_rate", "probe_req_rate", "retry_ratio",
-]
-
-# OUI manufacturer → device_type mapping
-OUI_DEVICE_MAP = {
-    # Routers / network infrastructure
-    "NETGEAR":              "router",
-    "Ruckus Wireless":      "router",
-    "Arcadyan Corporation": "router",
-    "Commscope":            "router",
-    "Vantiva USA LLC":      "router",
-    "WNC Corporation":      "router",
-    "Epigram, Inc":         "router",
-    "TP-Link":              "router",
-    "Ubiquiti":             "router",
-    "Sagemcom":             "router",
-
-    # Smart home / IoT
-    "Sonos, Inc.":          "smart_home",
-    "Nest Labs Inc.":       "smart_home",
-    "ecobee inc":           "smart_home",
-    "GE Lighting":          "smart_home",
-    "Tuya Smart Inc.":      "smart_home",
-    "Espressif Inc.":       "smart_home",
-    "Smart Innovation LLC": "smart_home",
-    "Vizio, Inc":           "smart_home",
-    "iRobot Corporation":   "smart_home",
-    "Ring LLC":             "smart_home",
-    "SimpliSafe":           "smart_home",
-    "Blink by Amazon":      "smart_home",
-    "SAMJIN":               "smart_home",
-    "AMPAK Technology":     "smart_home",
-
-    # Phones
-    "Samsung":              "phone",
-    "Google, Inc.":         "phone",
-    "LG Innotek":           "phone",
-    "Huawei":               "phone",
-    "Xiaomi":               "phone",
-    "OnePlus":              "phone",
-    "Motorola":             "phone",
-    "OPPO":                 "phone",
-    "Nokia Solutions and Networks GmbH & Co. KG":   "phone",
-
-    # Laptops / computers
-    "Dell Inc.":            "cpu",
-    "Lenovo":               "cpu",
-    "Intel":                "cpu",
-    "AzureWave Technology Inc.": "cpu",
-    "ASUSTek":              "cpu",
-    "Apple, Inc.":          "cpu",
-
-    # Printers
-    "LEXMARK INTERNATIONAL, INC.": "printer",
-
-    # Game consoles
-    "Nintendo Co., Ltd.":  "game_console",
-
-    # Other
-    "Tesla,Inc.":           "iot_sensor",
-    "Visteon":              "iot_sensor",
-}
-
 
 def load_oui_cache(data_dir: str) -> dict:
     path = os.path.join(data_dir, "oui_cache.json")
@@ -106,10 +43,6 @@ def oui_device_type(mac, oui_cache):
     """Look up device type from OUI manufacturer."""
     prefix = mac[:8].upper()
     manufacturer = oui_cache.get(prefix, "Unknown")
-
-    # Apple makes everything — let heuristics decide
-    if "apple" in manufacturer.lower():
-        return None
 
     for keyword, dev_type in OUI_DEVICE_MAP.items():
         if keyword.lower() in manufacturer.lower():
