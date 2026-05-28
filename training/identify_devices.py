@@ -77,8 +77,12 @@ def load_csvs(data_dir, prefix):
 
 def main():
     parser = argparse.ArgumentParser(description="Identify devices from sniffer data")
-    parser.add_argument("--data_dir", required=True, help="Directory with feat_*.csv and alert_*.csv")
-    parser.add_argument("--no-lookup", action="store_true", help="Skip API lookup, use cache only")
+    parser.add_argument(
+        "--data_dir", required=True, help="Directory with feat_*.csv and alert_*.csv"
+    )
+    parser.add_argument(
+        "--no-lookup", action="store_true", help="Skip API lookup, use cache only"
+    )
     args = parser.parse_args()
 
     cache_path = os.path.join(args.data_dir, "oui_cache.json")
@@ -124,8 +128,12 @@ def main():
         d["pkt_rate"] = max(d["pkt_rate"], float(row.get("pkt_rate", 0)))
         d["avg_pkt_size"] += float(row.get("avg_pkt_size", 0))
         d["beacon_rate"] = max(d["beacon_rate"], float(row.get("beacon_rate", 0)))
-        d["probe_req_rate"] = max(d["probe_req_rate"], float(row.get("probe_req_rate", 0)))
-        d["unique_dst_count"] = max(d["unique_dst_count"], int(float(row.get("unique_dst_count", 0))))
+        d["probe_req_rate"] = max(
+            d["probe_req_rate"], float(row.get("probe_req_rate", 0))
+        )
+        d["unique_dst_count"] = max(
+            d["unique_dst_count"], int(float(row.get("unique_dst_count", 0)))
+        )
         d["avg_rssi"] += float(row.get("avg_rssi", 0))
         d["mgmt_ratio"] += float(row.get("mgmt_ratio", 0))
         d["data_ratio"] += float(row.get("data_ratio", 0))
@@ -172,7 +180,9 @@ def main():
 
     # classify and display
     print("\n" + "=" * 110)
-    print(f"{'MAC':<18} {'Vendor':<22} {'SSID':<16} {'Sec':<6} {'Pkts':>6} {'Rate':>6} {'Type':<12} {'Alerts'}")
+    print(
+        f"{'MAC':<18} {'Vendor':<22} {'SSID':<16} {'Sec':<6} {'Pkts':>6} {'Rate':>6} {'Type':<12} {'Alerts'}"
+    )
     print("=" * 110)
 
     for mac in sorted(devices, key=lambda m: devices[m]["pkt_count"], reverse=True):
@@ -182,7 +192,6 @@ def main():
 
         # OUI-based classification
         dev_type = "unknown"
-        vendor_lower = vendor.lower()
 
         dev_type = oui_device_type(mac, cache) or "unknown"
 
@@ -191,14 +200,22 @@ def main():
             dev_type = "router"
         elif d["beacon_rate"] > 0.5 and d["probe_req_rate"] >= 0.1:
             dev_type = "smart_home"
-        elif d.get("avg_pkt_size", 0) > 300 and d["data_ratio"] > 0.5 and d["pkt_rate"] > 10:
+        elif (
+            d.get("avg_pkt_size", 0) > 300
+            and d["data_ratio"] > 0.5
+            and d["pkt_rate"] > 10
+        ):
             dev_type = "cpu"
         elif dev_type == "unknown":
             if d["probe_req_rate"] > 1.0 and d["data_ratio"] < 0.3:
                 dev_type = "phone"
             elif d["probe_req_rate"] > 0.1 and d["data_ratio"] > 0.3:
                 dev_type = "cpu"
-            elif d["probe_req_rate"] > 0.1 and d["data_ratio"] < 0.3 and d.get("avg_pkt_size", 0) < 200:
+            elif (
+                d["probe_req_rate"] > 0.1
+                and d["data_ratio"] < 0.3
+                and d.get("avg_pkt_size", 0) < 200
+            ):
                 dev_type = "phone"
             elif d["pkt_count"] < 50 and d["mgmt_ratio"] > 0.5:
                 dev_type = "iot_sensor"
@@ -209,12 +226,16 @@ def main():
         sec = d["security"][:5] if d["security"] else ""
         alerts = ", ".join(sorted(d["alerts"])) if d["alerts"] else ""
 
-        print(f"{mac:<18} {vendor:<22} {ssid:<16} {sec:<6} {d['pkt_count']:>6} {d['pkt_rate']:>6.1f} {dev_type:<12} {alerts}")
+        print(
+            f"{mac:<18} {vendor:<22} {ssid:<16} {sec:<6} {d['pkt_count']:>6} {d['pkt_rate']:>6.1f} {dev_type:<12} {alerts}"
+        )
 
     # summary
     alert_devices = [m for m, d in devices.items() if d["alerts"]]
     routers = [m for m, d in devices.items() if d["beacon_rate"] > 0.5]
-    print(f"\nSummary: {len(routers)} routers/APs, {len(alert_devices)} devices with alerts, {len(devices)} total")
+    print(
+        f"\nSummary: {len(routers)} routers/APs, {len(alert_devices)} devices with alerts, {len(devices)} total"
+    )
 
     if alert_devices:
         print("\nDevices with alerts:")

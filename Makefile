@@ -165,6 +165,32 @@ ml-copy:
 	cp $(OUTPUT_DIR)/label_mappings.h src/
 	@echo "\nDone! Run 'make flash' to upload to device.\n"
 
+# ── Python ── #
+
+.PHONY: install type lint format py-clean
+
+install: 
+	pip install -r training/requirements.txt
+	pip install mypy ruff black
+	mypy --install-types
+
+type: 
+	mypy --ignore-missing-imports training/
+	mypy tools/generate_oui_table.py
+
+lint: 
+	ruff check training/
+	ruff check tools/generate_oui_table.py
+
+format:
+	black training/
+	black tools/generate_oui_table.py
+
+py-clean:
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	rm -rf .mypy_cache/
+	rm -rf .ruff_cache/
+
 # ── Helpers ── #
 
 .PHONY: _check_port
