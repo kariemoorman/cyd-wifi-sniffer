@@ -161,13 +161,15 @@ def main():
         "--regenerate",
         action="store_true",
         help="Discard the existing oui_table.h and rebuild from cache only. "
-             "Default is incremental: preserve existing entries and only append new ones.",
+        "Default is incremental: preserve existing entries and only append new ones.",
     )
     args = ap.parse_args()
 
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    cache_path = args.cache if os.path.isabs(args.cache) else os.path.join(repo_root, args.cache)
+    cache_path = (
+        args.cache if os.path.isabs(args.cache) else os.path.join(repo_root, args.cache)
+    )
     if os.path.exists(cache_path):
         with open(cache_path) as f:
             oui_cache = json.load(f)
@@ -176,7 +178,9 @@ def main():
         oui_cache = {}
         print(f"No OUI cache at {cache_path}; emitting empty table")
 
-    out_path = args.out if os.path.isabs(args.out) else os.path.join(repo_root, args.out)
+    out_path = (
+        args.out if os.path.isabs(args.out) else os.path.join(repo_root, args.out)
+    )
 
     if args.regenerate:
         existing = {}
@@ -185,7 +189,9 @@ def main():
     else:
         existing = parse_existing(out_path)
         if existing:
-            print(f"Loaded {len(existing)} existing entries from {out_path} (preserving)")
+            print(
+                f"Loaded {len(existing)} existing entries from {out_path} (preserving)"
+            )
         else:
             print(f"No existing {out_path}; generating from scratch")
 

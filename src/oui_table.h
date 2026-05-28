@@ -10,93 +10,239 @@ struct OuiEntry {
     uint8_t  device_type;  // index into DEVICE_TYPE_LABELS
 };
 
-static constexpr int OUI_TABLE_LEN = 86;
+static constexpr int OUI_TABLE_LEN = 232;
 
 static constexpr OuiEntry OUI_TABLE[] = {
+    {0x000993, 3}, // iot_sensor   Visteon Corporation
+    {0x000A30, 3}, // iot_sensor   Visteon Corporation
     {0x000E58, 4}, // smart_home   Sonos, Inc.
+    {0x00156D, 0}, // router       Ubiquiti Inc
+    {0x00180A, 0}, // router       Cisco Meraki
     {0x002000, 6}, // printer      LEXMARK INTERNATIONAL, INC.
+    {0x002722, 0}, // router       Ubiquiti Inc
     {0x002DB3, 4}, // smart_home   AMPAK Technology,Inc.
+    {0x00841E, 0}, // router       Cisco Meraki
     {0x00904C, 0}, // router       Epigram, Inc.
+    {0x00B463, 5}, // camera       Ring LLC
     {0x00E63A, 0}, // router       Ruckus Wireless
     {0x00F48D, 9}, // flock        Liteon Technology Corporation
+    {0x040D84, 9}, // flock        Silicon Laboratories
+    {0x0418D6, 0}, // router       Ubiquiti Inc
+    {0x083A88, 9}, // flock        Universal Global Scientific Industrial., Ltd
+    {0x086A0B, 0}, // router       Cisco Meraki
+    {0x08711C, 0}, // router       Cisco Meraki
+    {0x08F1B3, 0}, // router       Cisco Meraki
     {0x0C298F, 3}, // iot_sensor   Tesla, Inc.
+    {0x0C7BC8, 0}, // router       Cisco Meraki
+    {0x0C8DDB, 0}, // router       Cisco Meraki
+    {0x0CD9C1, 3}, // iot_sensor   Visteon Corporation
+    {0x0CEA14, 0}, // router       Ubiquiti Inc
     {0x100C6B, 0}, // router       NETGEAR
     {0x102CB1, 4}, // smart_home   Smart Innovation LLC
     {0x10DA43, 0}, // router       NETGEAR
     {0x10E177, 0}, // router       Commscope
     {0x145AFC, 9}, // flock        Liteon Technology Corporation
+    {0x149F43, 0}, // router       Cisco Meraki
     {0x186041, 0}, // router       Arcadyan Corporation
+    {0x187F88, 5}, // camera       Ring LLC
     {0x18B430, 4}, // smart_home   Nest Labs Inc.
+    {0x18E829, 0}, // router       Ubiquiti Inc
+    {0x1C0B8B, 0}, // router       Ubiquiti Inc
+    {0x1C34F1, 9}, // flock        Silicon Laboratories
+    {0x1C6A1B, 0}, // router       Ubiquiti Inc
     {0x1C9ECC, 0}, // router       Vantiva USA LLC
+    {0x1CE587, 0}, // router       Cisco Meraki
+    {0x242BD6, 5}, // camera       Ring LLC
     {0x2441FE, 0}, // router       WNC Corporation
+    {0x245A4C, 0}, // router       Ubiquiti Inc
+    {0x24A43C, 0}, // router       Ubiquiti Inc
     {0x24B2B9, 9}, // flock        Liteon Technology Corporation
     {0x24D7EB, 4}, // smart_home   Espressif Inc.
+    {0x28704E, 0}, // router       Ubiquiti Inc
+    {0x2CAA8E, 5}, // camera       Wyze Labs Inc
+    {0x2C3F0B, 0}, // router       Cisco Meraki
+    {0x303B49, 0}, // router       Cisco Meraki
     {0x341343, 4}, // smart_home   GE Lighting
+    {0x343EA4, 5}, // camera       Ring LLC
+    {0x3456FE, 0}, // router       Cisco Meraki
+    {0x3CA070, 5}, // camera       Blink by Amazon
     {0x381F8D, 4}, // smart_home   Tuya Smart Inc.
+    {0x385B44, 9}, // flock        Silicon Laboratories
+    {0x388479, 0}, // router       Cisco Meraki
     {0x3C3174, 1}, // phone        Google, Inc.
     {0x3C9180, 9}, // flock        Liteon Technology Corporation
     {0x3C9BD6, 4}, // smart_home   Vizio, Inc
     {0x400FC1, 0}, // router       Vantiva USA LLC
+    {0x4027A8, 0}, // router       Cisco Meraki
     {0x409F38, 2}, // cpu          AzureWave Technology Inc.
     {0x446132, 4}, // smart_home   ecobee inc
     {0x44A3BB, 2}, // cpu          Intel Corporate
+    {0x44D9E7, 0}, // router       Ubiquiti Inc
     {0x4831B7, 4}, // smart_home   Espressif Inc.
     {0x48A6B8, 4}, // smart_home   Sonos, Inc.
     {0x4CB9EA, 4}, // smart_home   iRobot Corporation
+    {0x4CC8A1, 0}, // router       Cisco Meraki
     {0x4CFCAA, 3}, // iot_sensor   Tesla,Inc.
     {0x501479, 4}, // smart_home   iRobot Corporation
+    {0x50E467, 5}, // camera       Ring LLC
     {0x54077D, 0}, // router       NETGEAR
+    {0x54F8F0, 3}, // iot_sensor   Tesla, Inc.
+    {0x54E019, 5}, // camera       Ring LLC
     {0x5800E3, 9}, // flock        Liteon Technology Corporation
+    {0x588E81, 9}, // flock        Silicon Laboratories
     {0x589630, 0}, // router       Vantiva USA LLC
+    {0x58D61F, 0}, // router       Ubiquiti Inc
+    {0x5C0610, 0}, // router       Cisco Meraki
+    {0x5C475E, 5}, // camera       Ring LLC
     {0x5C93A2, 9}, // flock        Liteon Technology Corporation
+    {0x602232, 0}, // router       Ubiquiti Inc
     {0x60CF84, 2}, // cpu          ASUSTek COMPUTER INC.
     {0x641666, 4}, // smart_home   Nest Labs Inc.
     {0x646E69, 9}, // flock        Liteon Technology Corporation
-    {0x649A63, 4}, // smart_home   Ring LLC
+    {0x649A63, 5}, // camera       Ring LLC
     {0x64E833, 4}, // smart_home   Espressif Inc.
+    {0x683A1E, 0}, // router       Cisco Meraki
     {0x683A48, 4}, // smart_home   SAMJIN Co., Ltd.
+    {0x684992, 0}, // router       Cisco Meraki
+    {0x687251, 0}, // router       Ubiquiti Inc
+    {0x68D79A, 0}, // router       Ubiquiti Inc
+    {0x6C63F8, 0}, // router       Ubiquiti Inc
+    {0x6C7DB7, 0}, // router       Cisco Meraki
+    {0x6C7F0C, 0}, // router       Cisco Meraki
+    {0x6CC3B2, 0}, // router       Cisco Meraki
     {0x6CCDD6, 0}, // router       NETGEAR
+    {0x6CDEA9, 0}, // router       Cisco Meraki
+    {0x6CEFBD, 0}, // router       Cisco Meraki
     {0x700894, 9}, // flock        Liteon Technology Corporation
     {0x704A0E, 4}, // smart_home   AMPAK Technology,Inc.
     {0x707DA1, 0}, // router       Sagemcom Broadband SAS
+    {0x70A741, 0}, // router       Ubiquiti Inc
+    {0x70AD43, 5}, // camera       Blink by Amazon
     {0x70C94E, 9}, // flock        Liteon Technology Corporation
+    {0x741348, 5}, // camera       Blink by Amazon
     {0x744CA1, 9}, // flock        Liteon Technology Corporation
-    {0x74AB93, 4}, // smart_home   Blink by Amazon
+    {0x7483C2, 0}, // router       Ubiquiti Inc
+    {0x74AB93, 5}, // camera       Blink by Amazon
+    {0x74ACB9, 0}, // router       Ubiquiti Inc
+    {0x74F92C, 0}, // router       Ubiquiti Inc
+    {0x74FA29, 0}, // router       Ubiquiti Inc
     {0x74FECE, 0}, // router       TP-Link Systems Inc
+    {0x780F81, 0}, // router       Cisco Meraki
+    {0x784558, 0}, // router       Ubiquiti Inc
+    {0x788A20, 0}, // router       Ubiquiti Inc
     {0x78D294, 0}, // router       NETGEAR
+    {0x7CFC3C, 3}, // iot_sensor   Visteon Corporation
+    {0x802AA8, 0}, // router       Ubiquiti Inc
     {0x803049, 9}, // flock        Liteon Technology Corporation
+    {0x80482C, 5}, // camera       Wyze Labs Inc
     {0x804AF2, 4}, // smart_home   Sonos, Inc.
     {0x80953A, 2}, // cpu          Apple, Inc.
     {0x80BC37, 0}, // router       Ruckus Wireless
+    {0x847848, 0}, // router       Ubiquiti Inc
+    {0x881544, 0}, // router       Cisco Meraki
+    {0x8C3066, 0}, // router       Ubiquiti Inc
     {0x8C5A25, 0}, // router       Commscope
     {0x8C79F5, 1}, // phone        Samsung Electronics Co.,Ltd
+    {0x8C8881, 0}, // router       Cisco Meraki
+    {0x8CEDE1, 0}, // router       Ubiquiti Inc
+    {0x9035EA, 9}, // flock        Silicon Laboratories
+    {0x9041B2, 0}, // router       Ubiquiti Inc
+    {0x90486C, 5}, // camera       Ring LLC
     {0x90CAFA, 1}, // phone        Google, Inc.
+    {0x90E643, 3}, // iot_sensor   Tesla, Inc.
     {0x940853, 9}, // flock        Liteon Technology Corporation
     {0x941865, 0}, // router       NETGEAR
+    {0x942A6F, 0}, // router       Ubiquiti Inc
+    {0x943469, 9}, // flock        Silicon Laboratories
     {0x946A77, 0}, // router       Vantiva USA LLC
+    {0x981888, 0}, // router       Cisco Meraki
+    {0x98ED5C, 3}, // iot_sensor   Tesla, Inc.
     {0x9C05D6, 0}, // router       Ubiquiti Inc
     {0x9C2F9D, 9}, // flock        Liteon Technology Corporation
+    {0x9C7613, 5}, // camera       Ring LLC
+    {0x9CE330, 0}, // router       Cisco Meraki
+    {0xA04E8D, 0}, // router       Cisco Meraki
+    {0xA05911, 0}, // router       Cisco Meraki
+    {0xA4F8FF, 0}, // router       Ubiquiti Inc
+    {0xA8400B, 3}, // iot_sensor   Visteon Corporation
+    {0xA8469D, 0}, // router       Cisco Meraki
+    {0xA89C6C, 0}, // router       Ubiquiti Inc
+    {0xAC17C8, 0}, // router       Cisco Meraki
     {0xAC6784, 1}, // phone        Google, Inc.
+    {0xAC69CF, 0}, // router       Cisco Meraki
+    {0xAC8BA9, 0}, // router       Ubiquiti Inc
     {0xAC919B, 0}, // router       WNC Corporation
+    {0xAC9FC3, 5}, // camera       Ring LLC
+    {0xACBDF7, 0}, // router       Cisco Meraki
+    {0xACC3E5, 0}, // router       Cisco Meraki
+    {0xACD31D, 0}, // router       Cisco Meraki
     {0xB03956, 0}, // router       NETGEAR
     {0xB06A41, 1}, // phone        Google, Inc.
     {0xB07FB9, 0}, // router       NETGEAR
+    {0xB41E52, 9}, // flock        Flock Safety
     {0xB4636F, 1}, // phone        Nokia Solutions and Networks GmbH & Co. KG
+    {0xB4DF91, 0}, // router       Cisco Meraki
+    {0xB4E3F9, 9}, // flock        Silicon Laboratories
+    {0xB4FBE4, 0}, // router       Ubiquiti Inc
+    {0xB80756, 0}, // router       Cisco Meraki
     {0xB81EA4, 9}, // flock        Liteon Technology Corporation
+    {0xB8AB61, 0}, // router       Cisco Meraki
+    {0xB8B4C9, 0}, // router       Cisco Meraki
+    {0xBC3340, 0}, // router       Cisco Meraki
+    {0xBCB1D3, 0}, // router       Cisco Meraki
+    {0xBCDB09, 0}, // router       Cisco Meraki
     {0xBCDF58, 1}, // phone        Google, Inc.
     {0xC03532, 9}, // flock        Liteon Technology Corporation
+    {0xC414A2, 0}, // router       Cisco Meraki
+    {0xC48BA3, 0}, // router       Cisco Meraki
+    {0xC4D666, 0}, // router       Cisco Meraki
+    {0xC4DBAD, 5}, // camera       Ring LLC
+    {0xC86340, 0}, // router       Cisco Meraki
+    {0xCC03D9, 0}, // router       Cisco Meraki
+    {0xCC35D9, 0}, // router       Ubiquiti Inc
+    {0xCC3BFB, 5}, // camera       Ring LLC
+    {0xCC6E2A, 0}, // router       Cisco Meraki
     {0xCC8826, 1}, // phone        LG Innotek
+    {0xCC9C3E, 0}, // router       Cisco Meraki
+    {0xCCCCCC, 9}, // flock        Silicon Laboratories
+    {0xD021F9, 0}, // router       Ubiquiti Inc
     {0xD03957, 9}, // flock        Liteon Technology Corporation
+    {0xD03A3E, 1}, // phone        Google, Inc.
+    {0xD03F27, 5}, // camera       Wyze Labs Inc
+    {0xD411D6, 9}, // flock        ShotSpotter, Inc.
+    {0xD44F14, 3}, // iot_sensor   Tesla, Inc.
+    {0xD489C1, 0}, // router       Ubiquiti Inc
     {0xD4F547, 1}, // phone        Google, Inc.
-    {0xD8F3BC, 9}, // flock        Liteon Tech Corporation
+    {0xD853AD, 0}, // router       Cisco Meraki
+    {0xD8B370, 0}, // router       Ubiquiti Inc
+    {0xD8F3BC, 9}, // flock        Liteon Technology Corporation
+    {0xDC9FDB, 0}, // router       Ubiquiti Inc
+    {0xE00AF6, 9}, // flock        Liteon Technology Corporation
+    {0xE0553D, 0}, // router       Cisco Meraki
+    {0xE063DA, 0}, // router       Ubiquiti Inc
     {0xE0C250, 0}, // router       NETGEAR
+    {0xE0CBBC, 0}, // router       Cisco Meraki
+    {0xE0D3B4, 0}, // router       Cisco Meraki
+    {0xE43883, 0}, // router       Ubiquiti Inc
+    {0xE455A8, 0}, // router       Cisco Meraki
     {0xE4AAEA, 9}, // flock        Liteon Technology Corporation
     {0xE8D0FC, 9}, // flock        Liteon Technology Corporation
+    {0xEC1BBD, 9}, // flock        Silicon Laboratories
     {0xECA81F, 0}, // router       Vantiva USA LLC
     {0xF0704F, 1}, // phone        Samsung Electronics Co.,Ltd
+    {0xF074C1, 5}, // camera       Blink by Amazon
+    {0xF082C0, 9}, // flock        Silicon Laboratories
+    {0xF09FC2, 0}, // router       Ubiquiti Inc
+    {0xF0C88B, 5}, // camera       Wyze Labs Inc
     {0xF46ADD, 9}, // flock        Liteon Technology Corporation
+    {0xF492BF, 0}, // router       Ubiquiti Inc
+    {0xF4E2C6, 0}, // router       Ubiquiti Inc
     {0xF85128, 4}, // smart_home   SimpliSafe
     {0xF855CD, 3}, // iot_sensor   Visteon Corporation
+    {0xF89E28, 0}, // router       Cisco Meraki
     {0xF8A2D6, 9}, // flock        Liteon Technology Corporation
     {0xF8F532, 0}, // router       Commscope
+    {0xFC35E6, 3}, // iot_sensor   Visteon Corporation
+    {0xFC942E, 0}, // router       Cisco Meraki
+    {0xFCECDA, 0}, // router       Ubiquiti Inc
 };

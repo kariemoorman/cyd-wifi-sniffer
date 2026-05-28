@@ -2,18 +2,16 @@
 import argparse
 import glob
 import os
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
-
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="tensorflow.lite.python.convert")
 
 from training.labels import (
     FEATURE_COLS,
@@ -25,6 +23,13 @@ from training.labels import (
     OUTPUT_NAMES,
     LABEL_CLASSES,
 )
+
+import warnings
+
+warnings.filterwarnings(
+    "ignore", category=UserWarning, module="tensorflow.lite.python.convert"
+)
+
 
 """
 CYD Network Sniffer — Multi-task TFLite Model Training
@@ -82,7 +87,9 @@ def prepare_flat_data(features, labels):
     # train_idx = np.where(train_mask)[0]
     # test_idx = np.where(~train_mask)[0]
     indices = np.arange(len(X))
-    train_idx, test_idx = train_test_split(indices, test_size=0.2, random_state=42, stratify=y_all[1])
+    train_idx, test_idx = train_test_split(
+        indices, test_size=0.2, random_state=42, stratify=y_all[1]
+    )
 
     X_train, X_test = X[train_idx], X[test_idx]
     y_train = [v[train_idx] for v in y_all]
@@ -144,7 +151,7 @@ def build_model(n_features: int):
     shared = tf.keras.layers.Dropout(0.2)(x)
 
     outputs = _build_output_heads(shared)
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    model: tf.keras.Model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return _compile_model(model)
 
 
@@ -157,7 +164,9 @@ def encode_labels(df: pd.DataFrame):
         # Flag any labels not in the fixed class list
         unmapped = df[name + "_enc"].isna().sum()
         if unmapped > 0:
-            print(f"  WARNING: {unmapped} rows in '{name}' have unknown labels, defaulting to last class")
+            print(
+                f"  WARNING: {unmapped} rows in '{name}' have unknown labels, defaulting to last class"
+            )
             df[name + "_enc"] = df[name + "_enc"].fillna(len(class_list) - 1)
         df[name + "_enc"] = df[name + "_enc"].astype(int)
         encoders[name] = mapping
@@ -180,12 +189,15 @@ def evaluate_model(model, X_test, y_test, model_name):
         target_names = [LABEL_CLASSES[name][int(c)] for c in classes_present]
 
         print(f"\n--- {name} ---")
-        print(classification_report(
-            y_test[i], y_pred_classes,
-            labels=classes_present,
-            target_names=target_names,
-            zero_division=0,
-        ))
+        print(
+            classification_report(
+                y_test[i],
+                y_pred_classes,
+                labels=classes_present,
+                target_names=target_names,
+                zero_division=0,
+            )
+        )
     print(f"\n{'='*60}\n")
 
 
@@ -198,7 +210,9 @@ def compute_sample_weights(y_train_list, balance_heads):
         classes = np.unique(y_train_list[i])
         weights = compute_class_weight("balanced", classes=classes, y=y_train_list[i])
         weight_dict = dict(zip(classes, weights))
-        head_weights = np.array([weight_dict[v] for v in y_train_list[i]], dtype=np.float32)
+        head_weights = np.array(
+            [weight_dict[v] for v in y_train_list[i]], dtype=np.float32
+        )
         combined *= head_weights
 
     combined /= combined.mean()
@@ -215,7 +229,9 @@ def compute_per_head_weights(y_train_list, balance_heads):
         classes = np.unique(y_train_list[i])
         weights = compute_class_weight("balanced", classes=classes, y=y_train_list[i])
         weight_dict = dict(zip(classes, weights))
-        head_weights = np.array([weight_dict[v] for v in y_train_list[i]], dtype=np.float32)
+        head_weights = np.array(
+            [weight_dict[v] for v in y_train_list[i]], dtype=np.float32
+        )
         head_weights /= head_weights.mean()
         all_weights.append(head_weights)
     return all_weights
@@ -241,7 +257,8 @@ def fit_model(model, X_train, y_train, X_test, y_test, sample_weights, args):
         ),
     ]
     return model.fit(
-        X_train, y_train,
+        X_train,
+        y_train,
         validation_data=(X_test, y_test),
         epochs=args.epochs,
         batch_size=args.batch_size,
@@ -255,7 +272,7 @@ def convert_to_tflite(model, scaler, X_train, args):
 
     def representative_dataset():
         for i in range(min(200, len(X_train))):
-            yield [X_train[i:i+1].astype(np.float32)]
+            yield [X_train[i : i + 1].astype(np.float32)]
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -276,14 +293,14 @@ def convert_to_tflite(model, scaler, X_train, args):
     with open(header_path, "w") as f:
         f.write("#pragma once\n\n")
         f.write(f"// Auto-generated — {len(tflite_model)} bytes\n")
-        f.write(f"alignas(16) const unsigned char SNIFFER_MODEL[] = {{\n")
+        f.write("alignas(16) const unsigned char SNIFFER_MODEL[] = {{\n")
         for i, byte in enumerate(tflite_model):
             if i % 12 == 0:
                 f.write("    ")
             f.write(f"0x{byte:02x}, ")
             if i % 12 == 11:
                 f.write("\n")
-        f.write(f"\n}};\n")
+        f.write("\n}};\n")
         f.write(f"const unsigned int SNIFFER_MODEL_LEN = {len(tflite_model)};\n")
     print(f"C header saved: {header_path}")
 
@@ -291,10 +308,10 @@ def convert_to_tflite(model, scaler, X_train, args):
     with open(scaler_path, "w") as f:
         f.write("#pragma once\n\n")
         f.write(f"// StandardScaler parameters — {len(FEATURE_COLS)} features\n")
-        f.write(f"const float SCALER_MEAN[] = {{\n    ")
+        f.write("const float SCALER_MEAN[] = {{\n    ")
         f.write(", ".join(f"{v:.6f}f" for v in scaler.mean_))
         f.write("\n};\n\n")
-        f.write(f"const float SCALER_SCALE[] = {{\n    ")
+        f.write("const float SCALER_SCALE[] = {{\n    ")
         f.write(", ".join(f"{v:.6f}f" for v in scaler.scale_))
         f.write("\n};\n")
     print(f"Scaler params saved: {scaler_path}")
@@ -325,7 +342,8 @@ def convert_to_tflite(model, scaler, X_train, args):
     print()
 
 
-#--- Models --- #
+# --- Models --- #
+
 
 def train_nn(X_train, y_train, X_test, y_test, scaler, args):
     # Class balancing
@@ -334,9 +352,9 @@ def train_nn(X_train, y_train, X_test, y_test, scaler, args):
     model = build_model(len(FEATURE_COLS))
     model.summary()
     print()
-    # Train 
+    # Train
     fit_model(model, X_train, y_train, X_test, y_test, sample_weights, args)
-    # Evaluate Model Performance 
+    # Evaluate Model Performance
     evaluate_model(model, X_test, y_test, "Dense NN")
     # Export Model
     convert_to_tflite(model, scaler, X_train, args)
@@ -368,19 +386,23 @@ def train_rf(X_train, y_train, X_test, y_test, args):
         class_names = LABEL_CLASSES[name]
         target_names = [class_names[int(c)] for c in classes_present]
 
-        print(f"\n--- {name} (accuracy: {acc:.4f}, balanced: {class_weight is not None}) ---")
-        print(classification_report(
-            y_test[i], y_pred,
-            labels=classes_present,
-            target_names=target_names,
-            zero_division=0,
-        ))
+        print(
+            f"\n--- {name} (accuracy: {acc:.4f}, balanced: {class_weight is not None}) ---"
+        )
+        print(
+            classification_report(
+                y_test[i],
+                y_pred,
+                labels=classes_present,
+                target_names=target_names,
+                zero_division=0,
+            )
+        )
 
         importances = rf.feature_importances_
         ranked = sorted(zip(FEATURE_COLS, importances), key=lambda x: -x[1])
-        print(f"  Top features: ", end="")
+        print("  Top features: ", end="")
         print(", ".join(f"{name}={imp:.3f}" for name, imp in ranked[:5]))
-
 
 
 def assemble_windows(data_dir: str, window_size: int):
@@ -434,13 +456,16 @@ def assemble_windows(data_dir: str, window_size: int):
             T = window_size
 
         n_win = T - window_size + 1
-        wins = np.array([seq[i:i + window_size] for i in range(n_win)],
-                        dtype=np.float32)
+        wins = np.array(
+            [seq[i : i + window_size] for i in range(n_win)], dtype=np.float32
+        )
         windows[mac] = wins
 
     total_wins = sum(w.shape[0] for w in windows.values())
-    print(f"  Assembled {total_wins} windows across {len(windows)} MACs "
-          f"(window_size={window_size}, stride=1)")
+    print(
+        f"  Assembled {total_wins} windows across {len(windows)} MACs "
+        f"(window_size={window_size}, stride=1)"
+    )
     return windows, files
 
 
@@ -494,14 +519,14 @@ def build_hybrid_lr(arch: str, window_size: int, n_features: int):
     x = tf.keras.layers.BatchNormalization()(x)
     shared = tf.keras.layers.Dropout(0.3)(x)
     outputs = _build_output_heads(shared)
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    model: tf.keras.Model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return _compile_model(model)
 
 
 def train_hybrid(features, labels, args):
     """Train a hybrid RNN+LR model using time-series windows.
-    Hybrid models (LSTM_LR, GRU_LR, RNN_LR)combine deep sequence models with 
-    classical classifiers: Temporal feature extraction via 
+    Hybrid models (LSTM_LR, GRU_LR, RNN_LR)combine deep sequence models with
+    classical classifiers: Temporal feature extraction via
     RNN backbone + Dense+softmax (logistic regression) output heads.
     """
 
@@ -562,7 +587,9 @@ def train_hybrid(features, labels, args):
     # train_idx = np.where(train_mask)[0]
     # test_idx = np.where(~train_mask)[0]
     indices = np.arange(len(X_all))
-    train_idx, test_idx = train_test_split(indices, test_size=0.2, random_state=42, stratify=y_all[1])
+    train_idx, test_idx = train_test_split(
+        indices, test_size=0.2, random_state=42, stratify=y_all[1]
+    )
 
     X_train, X_test = X_all[train_idx], X_all[test_idx]
     y_train = [y[train_idx] for y in y_all]
@@ -591,25 +618,35 @@ def train_hybrid(features, labels, args):
 
 def main():
     parser = argparse.ArgumentParser(description="Train CYD sniffer ML model")
-    parser.add_argument("--data_dir", required=True,
-                        help="Directory with feat_*.csv and labels.csv")
-    parser.add_argument("--output_dir", default="./output",
-                        help="Output directory")
-    parser.add_argument("--model",
-                        choices=["nn", "rf", "lstm_lr", "gru_lr", "rnn_lr"],
-                        default="nn",
-                        help="Model type: nn (dense), rf (random forest baseline), "
-                             "lstm_lr / gru_lr / rnn_lr (hybrid temporal + LR)")
-    parser.add_argument("--window_size", type=int, default=10,
-                        help="Sliding window size for hybrid models (default: 10)")
-    parser.add_argument("--epochs", type=int, default=100,
-                        help="Training epochs (nn / hybrid only)")
-    parser.add_argument("--batch_size", type=int, default=32,
-                        help="Batch size (nn / hybrid only)")
     parser.add_argument(
-        "--balance", nargs="*", default=None,
+        "--data_dir", required=True, help="Directory with feat_*.csv and labels.csv"
+    )
+    parser.add_argument("--output_dir", default="./output", help="Output directory")
+    parser.add_argument(
+        "--model",
+        choices=["nn", "rf", "lstm_lr", "gru_lr", "rnn_lr"],
+        default="nn",
+        help="Model type: nn (dense), rf (random forest baseline), "
+        "lstm_lr / gru_lr / rnn_lr (hybrid temporal + LR)",
+    )
+    parser.add_argument(
+        "--window_size",
+        type=int,
+        default=10,
+        help="Sliding window size for hybrid models (default: 10)",
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=100, help="Training epochs (nn / hybrid only)"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=32, help="Batch size (nn / hybrid only)"
+    )
+    parser.add_argument(
+        "--balance",
+        nargs="*",
+        default=None,
         help="Output heads to balance (default: all). "
-             "Options: anomaly, packet_class, protocol, device_type, route_action",
+        "Options: anomaly, packet_class, protocol, device_type, route_action",
     )
     args = parser.parse_args()
 

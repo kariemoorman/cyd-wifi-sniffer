@@ -13,14 +13,19 @@ enum FrameType : uint8_t {
 };
 
 enum MgmtSubtype : uint8_t {
-    MGMT_ASSOC_REQ    = 0,
-    MGMT_ASSOC_RESP   = 1,
-    MGMT_PROBE_REQ    = 4,
-    MGMT_PROBE_RESP   = 5,
-    MGMT_BEACON       = 8,
-    MGMT_DISASSOC     = 10,
-    MGMT_AUTH          = 11,
-    MGMT_DEAUTH       = 12,
+    MGMT_ASSOC_REQ      = 0,
+    MGMT_ASSOC_RESP     = 1,
+    MGMT_REASSOC_REQ    = 2,
+    MGMT_REASSOC_RESP   = 3,
+    MGMT_PROBE_REQ      = 4,
+    MGMT_PROBE_RESP     = 5,
+    MGMT_TIMING_AD      = 6,
+    MGMT_BEACON         = 8,
+    MGMT_ATIM           = 9,
+    MGMT_DISASSOC       = 10,
+    MGMT_AUTH           = 11,
+    MGMT_DEAUTH         = 12,
+    MGMT_ACTION         = 13,
 };
 
 inline const char* frame_type_str(uint8_t type) {
@@ -34,15 +39,20 @@ inline const char* frame_type_str(uint8_t type) {
 
 inline const char* mgmt_subtype_str(uint8_t subtype) {
     switch (subtype) {
-        case MGMT_BEACON:     return "BEACON";
-        case MGMT_PROBE_REQ:  return "PROBE_REQ";
-        case MGMT_PROBE_RESP: return "PROBE_RESP";
-        case MGMT_AUTH:       return "AUTH";
-        case MGMT_DEAUTH:     return "DEAUTH";
-        case MGMT_ASSOC_REQ:  return "ASSOC_REQ";
-        case MGMT_ASSOC_RESP: return "ASSOC_RESP";
-        case MGMT_DISASSOC:   return "DISASSOC";
-        default:              return "OTHER";
+        case MGMT_BEACON:       return "BEACON";
+        case MGMT_PROBE_REQ:    return "PROBE_REQ";
+        case MGMT_PROBE_RESP:   return "PROBE_RESP";
+        case MGMT_AUTH:         return "AUTH";
+        case MGMT_DEAUTH:       return "DEAUTH";
+        case MGMT_ASSOC_REQ:    return "ASSOC_REQ";
+        case MGMT_ASSOC_RESP:   return "ASSOC_RESP";
+        case MGMT_REASSOC_REQ:  return "REASSOC_REQ";
+        case MGMT_REASSOC_RESP: return "REASSOC_RESP";
+        case MGMT_DISASSOC:     return "DISASSOC";
+        case MGMT_TIMING_AD:    return "TIMING_AD";
+        case MGMT_ATIM:         return "ATIM";
+        case MGMT_ACTION:       return "ACTION";
+        default:                return "OTHER";
     }
 }
 

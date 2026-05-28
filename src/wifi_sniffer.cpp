@@ -175,9 +175,9 @@ void sniffer_start() {
     if (g_running) return;
 
     wifi_promiscuous_filter_t filt = {
-        .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT
-                     | WIFI_PROMIS_FILTER_MASK_DATA
-                     | WIFI_PROMIS_FILTER_MASK_CTRL
+        .filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT // beacons, probes, assoc
+                     | WIFI_PROMIS_FILTER_MASK_DATA // data frames
+                     | WIFI_PROMIS_FILTER_MASK_CTRL // ACK, RTS/CTS, etc.
     };
     esp_wifi_set_promiscuous_filter(&filt);
 
