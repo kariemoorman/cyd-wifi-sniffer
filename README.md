@@ -303,9 +303,9 @@ scalar network-traffic features. Models are quantized to int8 and exported as a 
 |-------|----------------|-------------|--------------|
 | **Dense NN** (default) | `nn` | `make train-nn` | `Dense(64) → BN → Dropout(0.3) → Dense(32) → BN → Dropout(0.2)` shared backbone → 5 softmax heads. ~4KB quantized. |
 | **LSTM hybrid** | `lstm_lr` | `make train-lstm` | Sliding-window time-series input `(window, 12)` → `LSTM(64, unroll=True)` temporal encoder → BN → Dropout(0.3) → 5 Dense+softmax (logistic-regression) heads. Captures long-range gated dependencies across consecutive 10s feature windows per device. |
-| **GRU hybrid** | `gru_lr` | `make train-gru` | Same shape as LSTM but uses `GRU(64, unroll=True)` — fewer parameters and faster inference than LSTM with comparable accuracy on shorter sequences. |
-| **RNN hybrid** | `rnn_lr` | `make train-rnn` | Same shape as LSTM but uses `SimpleRNN(64, unroll=True)` — smallest hybrid footprint; suitable when the window is short and gradients stay well-behaved. |
-| **Random Forest** | `rf` | `make train-rf` | One `RandomForestClassifier(n_estimators=100, max_depth=10)` per output head. Sklearn baseline — not exported to TFLite; used for accuracy comparison and feature-importance ranking. |
+| **GRU hybrid** | `gru_lr` | `make train-gru` | Same shape as LSTM but uses `GRU(64, unroll=True)`. Fewer parameters and faster inference than LSTM with comparable accuracy on shorter sequences. |
+| **RNN hybrid** | `rnn_lr` | `make train-rnn` | Same shape as LSTM but uses `SimpleRNN(64, unroll=True)`. Suitable when the window is short and gradients stay well-behaved. |
+| **Random Forest** | `rf` | `make train-rf` | One `RandomForestClassifier(n_estimators=100, max_depth=10)` per output head. Sklearn baseline (not exported to TFLite); used for accuracy comparison and feature-importance ranking. |
 
 All three hybrid models share `assemble_windows()` for time-series prep: every
 row of `feat_*.csv` is one timestep, rows for each `src_mac` are concatenated
